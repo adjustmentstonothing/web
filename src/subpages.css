@@ -1,0 +1,273 @@
+@font-face {
+  font-family: "GT Standard";
+  src: url("/fonts/GT-Standard-L-Standard-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --bg: #000;
+  --text: #fff;
+  --font: "GT Standard", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-weight: 400;
+  --page-padding: clamp(1rem, 4.5vw, 2.5rem);
+  /* Two sizes only: big = hero + App Store CTA; small = everything else (48:22 vs big on desktop) */
+  --store-title-font-size: 48px;
+  --small-text-size: 22px;
+  --store-title-line-height: 1.22;
+  --store-title-letter-spacing: 0;
+  --small-line-height: 1.55;
+}
+
+@media (max-width: 600px) {
+  :root {
+    --store-title-font-size: 40px;
+    --store-title-line-height: 40px;
+    --small-text-size: 18px;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--bg);
+}
+
+body.subpage {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font: var(--font-weight) var(--small-text-size) / var(--small-line-height) var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.subpage-main {
+  flex: 1 0 auto;
+  width: 100%;
+  padding: max(var(--page-padding), env(safe-area-inset-top))
+    max(var(--page-padding), env(safe-area-inset-right))
+    max(var(--page-padding), env(safe-area-inset-bottom))
+    max(var(--page-padding), env(safe-area-inset-left));
+}
+
+.top-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(2rem, 10vw, 7rem);
+  align-items: start;
+}
+
+@media (max-width: 700px) {
+  .top-grid {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+}
+
+.col-main h1,
+.col-aside h2 {
+  margin: 0 0 1.25rem;
+  font-size: var(--small-text-size);
+  font-weight: var(--font-weight);
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+.col-main .body,
+.col-aside .body {
+  font-size: var(--small-text-size);
+  line-height: var(--small-line-height);
+}
+
+.col-main .body p,
+.col-aside .body p {
+  margin: 0 0 1.35rem;
+  font-size: inherit;
+  color: var(--text);
+}
+
+.col-main .body p:last-child,
+.col-aside .body p:last-child {
+  margin-bottom: 0;
+}
+
+.col-main .body a,
+.col-aside .body a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.subfooter {
+  flex-shrink: 0;
+  width: 100%;
+  padding: max(var(--page-padding), env(safe-area-inset-top))
+    max(var(--page-padding), env(safe-area-inset-right))
+    max(var(--page-padding), env(safe-area-inset-bottom))
+    max(var(--page-padding), env(safe-area-inset-left));
+}
+
+.subfooter-store {
+  display: block;
+  margin: 0 0 clamp(0.45rem, 1vh, 0.65rem);
+  font-size: var(--store-title-font-size);
+  line-height: var(--store-title-line-height);
+  letter-spacing: var(--store-title-letter-spacing);
+  font-weight: var(--font-weight);
+  color: var(--text);
+  text-decoration: none;
+}
+
+a.subfooter-store {
+  cursor: pointer;
+}
+
+.subfooter-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: clamp(1.25rem, 2.5vw, 1.875rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--small-text-size);
+  line-height: 1.45;
+}
+
+.subfooter-nav a {
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* --- Homepage: 3D intro, tap to reveal static layout --- */
+body.home .scene-root {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+body.home.home-revealed .scene-root {
+  pointer-events: none;
+}
+
+body.home .intro-capture {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body.home.home-revealed .intro-capture {
+  display: none;
+}
+
+body.home .home-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: var(--font-weight) var(--small-text-size) / var(--small-line-height) var(--font);
+  -webkit-font-smoothing: antialiased;
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.home.home-revealed .home-shell {
+  position: relative;
+  inset: unset;
+  z-index: 5;
+  opacity: 1;
+  pointer-events: auto;
+  min-height: 100vh;
+}
+
+body.home.home-revealed {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-height: 100vh;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: auto;
+  touch-action: auto;
+}
+
+html:has(body.home.home-revealed) {
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: auto;
+  min-height: 100%;
+}
+
+/* Homepage: proportions — small top label, hero body offset, footer anchored bottom */
+body.home .subpage-main.home-main {
+  display: block;
+  width: 100%;
+  padding: max(var(--page-padding), env(safe-area-inset-top))
+    max(var(--page-padding), env(safe-area-inset-right))
+    max(var(--page-padding), env(safe-area-inset-bottom))
+    max(var(--page-padding), env(safe-area-inset-left));
+}
+
+body.home .home-eyebrow {
+  margin: 0 0 clamp(0.5rem, 1.5vh, 1rem);
+  font-size: var(--small-text-size);
+  line-height: 1.35;
+  font-weight: var(--font-weight);
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+body.home .home-copy {
+  width: 100%;
+  max-width: none;
+  margin-top: clamp(2.25rem, 4vh, 5.5rem);
+  font-size: var(--store-title-font-size);
+  line-height: var(--store-title-line-height);
+  font-weight: var(--font-weight);
+  letter-spacing: var(--store-title-letter-spacing);
+}
+
+body.home .home-copy-stanza {
+  margin: 0 0 1em;
+  color: var(--text);
+}
+
+body.home .home-copy-rest {
+  margin: 0;
+  color: var(--text);
+}
+
+body.home .home-copy a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
