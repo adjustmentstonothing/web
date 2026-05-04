@@ -167,6 +167,10 @@ body.home.home-revealed .scene-root {
   pointer-events: none;
 }
 
+body.home #ui-toggle {
+  display: none;
+}
+
 body.home .intro-capture {
   position: fixed;
   inset: 0;

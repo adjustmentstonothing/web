@@ -65,6 +65,7 @@ export class RotatingPhone {
     this.envIntensityFactor = this.opts.envIntensity;
 
     this.modelSize = new THREE.Vector3(0.08, 0.16, 0.008);
+    this._cameraFitSize = new THREE.Vector3();
     this.modelLoaded = false;
     this.loadedModel = null;
     this.mirrorInstance = null;
@@ -305,9 +306,10 @@ export class RotatingPhone {
         this.rotator.add(model);
         this.loadedModel = model;
         this.modelLoaded = true;
-        this._fitCamera();
         this._applyEnvIntensity(this.envIntensityFactor);
         if (this._twoSided) this._applyTwoSided(true);
+        this._syncCameraFitSize();
+        this._fitCamera();
       },
       undefined,
       (err) => console.error('[RotatingPhone] load failed', err),
@@ -435,16 +437,27 @@ export class RotatingPhone {
     });
   }
 
+  _syncCameraFitSize() {
+    if (!this.rotator || !this.loadedModel) return;
+    this.rotator.updateMatrixWorld(true);
+    new THREE.Box3().setFromObject(this.rotator).getSize(this._cameraFitSize);
+    if (this._cameraFitSize.lengthSq() < 1e-12) {
+      this._cameraFitSize.copy(this.modelSize);
+    }
+  }
+
   _fitCamera() {
     const w = this.container.clientWidth || window.innerWidth;
     const h = this.container.clientHeight || window.innerHeight;
     const fov = this.camera.fov * (Math.PI / 180);
     const aspect = w / h;
-    const marginH = 1.18 / this.fitScreenFraction;
-    const marginW = 1.35 / this.fitScreenFraction;
-    const dH = (this.modelSize.y * marginH) / (2 * Math.tan(fov / 2));
-    const dW = (this.modelSize.x * marginW) / (2 * Math.tan(fov / 2) * aspect);
-    const d = Math.max(dH, dW);
+    const effFit = this.fitScreenFraction;
+    const fit = this.modelLoaded ? this._cameraFitSize : this.modelSize;
+    const marginH = 2.1 / effFit;
+    const marginW = 1.75 / effFit;
+    const dH = (fit.y * marginH) / (2 * Math.tan(fov / 2));
+    const dW = (fit.x * marginW) / (2 * Math.tan(fov / 2) * aspect);
+    const d = Math.max(dH, dW) * 1.05;
     this.camera.position.set(0, 0, d);
     this.camera.lookAt(0, 0, 0);
   }
@@ -501,6 +514,8 @@ export class RotatingPhone {
       this.mirrorInstance = clone;
 
       this._applyClippingToTree(this.loadedModel, [this._planeFront]);
+      this._syncCameraFitSize();
+      this._fitCamera();
     } else if (!active && this.mirrorInstance) {
       this.mirrorInstance.traverse((obj) => {
         if (!obj.isMesh || !obj.material) return;
@@ -512,6 +527,8 @@ export class RotatingPhone {
       this.mirrorInstance = null;
       this.screenMatBack = null;
       this._applyClippingToTree(this.loadedModel, null);
+      this._syncCameraFitSize();
+      this._fitCamera();
     }
   }
 
@@ -524,6 +541,8 @@ export class RotatingPhone {
     const gap = this.gapRatio * this.modelSize.z;
     this.mirrorInstance.position.z -= gap;
     this._planeBack.constant = -gap;
+    this._syncCameraFitSize();
+    this._fitCamera();
   }
 
   _applyEnvIntensity(factor) {
@@ -569,6 +588,10 @@ export class RotatingPhone {
     m.position.z -= this.modelSize.z * (1 - t) / 2;
     m.updateMatrixWorld(true);
     if (this.mirrorInstance) this._updateTwoSidedOffset();
+    else {
+      this._syncCameraFitSize();
+      this._fitCamera();
+    }
   }
 
   setBrightness(value) {
