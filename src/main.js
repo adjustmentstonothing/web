@@ -22,7 +22,7 @@ const app = document.getElementById('app');
 
 const phoneOptions = {
   // speed: parseFloat(document.getElementById("speed")?.value ?? "1"),
-  speed: 0.6,
+  speed: 0.8,
   twoSided:
     document.getElementById("two-sided")?.classList.contains("active") ?? true,
   thickness: parseFloat(document.getElementById("thickness")?.value ?? "1"),

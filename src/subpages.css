@@ -103,6 +103,12 @@ body.subpage {
   margin-bottom: 0;
 }
 
+@media (min-width: 1400px) {
+  body.privacy-policy .col-main .body p {
+    margin-bottom: 0;
+  }
+}
+
 .col-main .body a,
 .col-aside .body a {
   color: var(--text);
@@ -274,4 +280,12 @@ body.home .home-copy a {
   color: var(--text);
   text-decoration: underline;
   text-underline-offset: 0.2em;
+}
+
+@media (max-width: 600px) {
+  body.home .home-copy {
+    font-size: var(--small-text-size);
+    line-height: var(--small-line-height);
+    letter-spacing: 0.01em;
+  }
 }
