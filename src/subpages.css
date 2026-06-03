@@ -170,6 +170,7 @@ body.home .scene-root {
 }
 
 body.home.home-revealed .scene-root {
+  visibility: hidden;
   pointer-events: none;
 }
 
@@ -206,6 +207,7 @@ body.home .home-shell {
   -webkit-font-smoothing: antialiased;
   opacity: 0;
   pointer-events: none;
+  user-select: none;
 }
 
 body.home.home-revealed .home-shell {
@@ -245,6 +247,10 @@ body.home .subpage-main.home-main {
     max(var(--page-padding), env(safe-area-inset-right))
     max(var(--page-padding), env(safe-area-inset-bottom))
     max(var(--page-padding), env(safe-area-inset-left));
+}
+
+body.home.home-revealed .home-main {
+  cursor: pointer;
 }
 
 body.home .home-eyebrow {

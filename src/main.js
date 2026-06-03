@@ -136,26 +136,15 @@ for (const [, [id]] of Object.entries(uvIds)) {
 }
 
 const introCapture = document.getElementById('intro-capture');
-const homeSceneRoot = document.getElementById('scene-root');
-if (introCapture && homeSceneRoot && document.body.classList.contains('home')) {
-  let teardownDone = false;
-  const teardownScene = () => {
-    if (teardownDone) return;
-    teardownDone = true;
-    phone.dispose();
-    stats.dom.remove();
-    homeSceneRoot.remove();
-  };
+const homeMain = document.querySelector('.home-main');
 
-  introCapture.addEventListener(
-    'pointerdown',
-    () => {
-      document.body.classList.add('home-revealed');
-      introCapture.remove();
-      requestAnimationFrame(() => {
-        teardownScene();
-      });
-    },
-    { once: true },
-  );
+if (document.body.classList.contains('home')) {
+  introCapture?.addEventListener('pointerdown', () => {
+    document.body.classList.add('home-revealed');
+  });
+
+  homeMain?.addEventListener('pointerdown', () => {
+    if (!document.body.classList.contains('home-revealed')) return;
+    document.body.classList.remove('home-revealed');
+  });
 }
