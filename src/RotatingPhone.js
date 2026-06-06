@@ -378,21 +378,26 @@ export class RotatingPhone {
           if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 1.3;
           break;
         }
-        case 'Rim_Buttons': {
-          if (mat.map) { mat.map.dispose?.(); mat.map = null; }
-          mat.color.setHex(0x23252a);
-          mat.metalness = 1.0;
-          mat.roughness = 0.3;
-          if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 1.4;
-          mat.needsUpdate = true;
-          break;
-        }
+        case 'Rim_Buttons':
         case 'Rim_Frame_Only': {
           if (mat.map) { mat.map.dispose?.(); mat.map = null; }
-          mat.color.setHex(0x23252a);
+          if (mat.normalMap) { mat.normalMap.dispose?.(); mat.normalMap = null; }
+          mat.color.setHex(0x262626);
           mat.metalness = 1.0;
           mat.roughness = 0.3;
           if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 1.4;
+          mat.onBeforeCompile = (shader) => {
+            shader.fragmentShader = shader.fragmentShader.replace(
+              '#include <lights_fragment_maps>',
+              `#include <lights_fragment_maps>
+              {
+                float _g = dot(radiance, vec3(0.2126, 0.7152, 0.0722));
+                radiance = vec3(_g);
+                float _ig = dot(iblIrradiance, vec3(0.2126, 0.7152, 0.0722));
+                iblIrradiance = vec3(_ig);
+              }`,
+            );
+          };
           mat.needsUpdate = true;
           break;
         }
