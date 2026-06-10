@@ -20,9 +20,18 @@ if (uiToggle) {
 
 const app = document.getElementById('app');
 
+/** Fine-tune video inside the rounded mask. 1 = default fit. */
+const videoScaleX = 0.94;
+const videoScaleY = 0.97;
+const videoOffsetX = 0;
+const videoOffsetY = 0;
+/** true = red mask behind video (debug), false = black */
+const maskBgDebug = true;
+
 const phoneOptions = {
+  screenVideoUrl: "/video/atn-ui-17pro4.mp4",
   // speed: parseFloat(document.getElementById("speed")?.value ?? "1"),
-  speed: 0.8,
+  speed: 0,
   twoSided:
     document.getElementById("two-sided")?.classList.contains("active") ?? true,
   thickness: parseFloat(document.getElementById("thickness")?.value ?? "1"),
@@ -36,6 +45,13 @@ const phoneOptions = {
   envRotationDeg: parseFloat(document.getElementById("env-rot")?.value ?? "73"),
   envBlur: parseFloat(document.getElementById("env-blur")?.value ?? "0.04"),
   envIntensity: parseFloat(document.getElementById("env-int")?.value ?? "2.69"),
+  videoRounded: {
+    scaleX: videoScaleX,
+    scaleY: videoScaleY,
+    offsetX: videoOffsetX,
+    offsetY: videoOffsetY,
+    maskBgColor: maskBgDebug ? "#ff0000" : "#000000",
+  },
   uv: {
     rotationDeg: parseFloat(document.getElementById("uv-rot")?.value ?? "-90"),
     offsetX: parseFloat(document.getElementById("uv-ox")?.value ?? "0"),
@@ -53,6 +69,8 @@ const phone = new RotatingPhone(app, phoneOptions);
 window.recordBorder = (p) => phone.setRecordBorderParams(p);
 /** Console: `screenInsets()` — ring inset px, inner rect, source crop px */
 window.screenInsets = () => phone.getRecordBorderInsetInfo();
+/** Console: `videoMask()` or `videoMask({ scaleX: 0.95 })` */
+window.videoMask = (p) => (p ? phone.setVideoRoundedParams(p) : phone.getVideoMaskInfo());
 
 const origComposerRender = phone.composer.render.bind(phone.composer);
 phone.composer.render = (deltaTime) => {

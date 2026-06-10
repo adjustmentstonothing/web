@@ -11,14 +11,21 @@ import {
   RECORD_BORDER_DEFAULTS,
   omitUndefined,
 } from "./RecordBorderScreen.js";
+import {
+  VideoRoundedScreen,
+  VIDEO_ROUNDED_DEFAULTS,
+} from "./VideoRoundedScreen.js";
 
 RectAreaLightUniformsLib.init();
 
 const DEFAULTS = {
   speed: 1,
   screenImageUrl: "/atn-ui.png",
+  screenVideoUrl: "/video/atn-ui-17pro4.mp4",
   /** When true, screen is CanvasTexture: PNG + rotating conic ring (see RecordBorderScreen) */
-  useRecordBorder: true,
+  useRecordBorder: false,
+  /** Clip video to iPhone rounded rect on an offscreen canvas */
+  useVideoRoundedMask: true,
   modelUrl: "/iphone_doubleside.glb",
   hdrUrl: "/studio.hdr",
   twoSided: false,
@@ -53,6 +60,10 @@ export class RotatingPhone {
       recordBorder: {
         ...RECORD_BORDER_DEFAULTS,
         ...omitUndefined(options.recordBorder || {}),
+      },
+      videoRounded: {
+        ...VIDEO_ROUNDED_DEFAULTS,
+        ...omitUndefined(options.videoRounded || {}),
       },
     };
 
@@ -206,6 +217,39 @@ export class RotatingPhone {
         imageUrl: this.opts.screenImageUrl,
       });
       this.screenTex = this.recordScreen.texture;
+    } else if (this.opts.screenVideoUrl) {
+      if (this.opts.useVideoRoundedMask) {
+        this.videoScreen = new VideoRoundedScreen(this.renderer, {
+          ...this.opts.videoRounded,
+          videoUrl: this.opts.screenVideoUrl,
+        });
+        this.screenTex = this.videoScreen.texture;
+        this._screenVideo = this.videoScreen.video;
+      } else {
+        const video = document.createElement('video');
+        video.src = this.opts.screenVideoUrl;
+        video.crossOrigin = 'anonymous';
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+
+        const playVideo = () => {
+          video.play().catch(() => {});
+        };
+        video.addEventListener('loadeddata', playVideo);
+        playVideo();
+
+        this._screenVideo = video;
+        const texture = new THREE.VideoTexture(video);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        this.screenTex = texture;
+      }
     } else {
       const texture = new THREE.TextureLoader().load(
         this.opts.screenImageUrl,
@@ -252,6 +296,17 @@ export class RotatingPhone {
   /** Debug: ring inset px, inner content rect, source crop px — see RecordBorderScreen.getInsetInfo */
   getRecordBorderInsetInfo() {
     return this.recordScreen?.getInsetInfo?.() ?? null;
+  }
+
+  setVideoRoundedParams(partial) {
+    if (!this.videoScreen) return;
+    const clean = omitUndefined(partial);
+    this.videoScreen.setParams(clean);
+    Object.assign(this.opts.videoRounded, clean);
+  }
+
+  getVideoMaskInfo() {
+    return this.videoScreen?.getMaskInfo?.() ?? null;
   }
 
   _loadModel() {
@@ -642,8 +697,14 @@ export class RotatingPhone {
   }
 
   _onVisibility() {
-    if (document.hidden) this.clock.stop();
-    else { this.clock.start(); this.clock.getDelta(); }
+    if (document.hidden) {
+      this.clock.stop();
+      this._screenVideo?.pause?.();
+    } else {
+      this.clock.start();
+      this.clock.getDelta();
+      this._screenVideo?.play?.().catch(() => {});
+    }
   }
 
   _animate() {
@@ -658,6 +719,7 @@ export class RotatingPhone {
       this._planeBack.normal.copy(n).negate();
     }
     if (this.recordScreen) this.recordScreen.tick(dt);
+    if (this.videoScreen) this.videoScreen.tick();
     if (this.composer) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
     this._rafId = requestAnimationFrame(this._animate);
@@ -684,6 +746,11 @@ export class RotatingPhone {
     if (this.recordScreen) {
       this.recordScreen.dispose();
       this.recordScreen = null;
+      this.screenTex = null;
+    } else if (this.videoScreen) {
+      this.videoScreen.dispose();
+      this.videoScreen = null;
+      this._screenVideo = null;
       this.screenTex = null;
     } else {
       this.screenTex?.dispose?.();
