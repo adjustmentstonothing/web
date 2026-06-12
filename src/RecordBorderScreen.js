@@ -425,6 +425,10 @@ export class RecordBorderScreen {
       uiOpts.middleOpacity = tl.middleOpacity;
       uiOpts.bottomOpacity = tl.bottomOpacity;
       if (tl.primaryLabel) uiOpts.topLabel = tl.primaryLabel;
+    } else if (this._resolvedUiMode() === "record") {
+      uiOpts.primaryOpacity = this.opts.secondaryOpacity;
+      uiOpts.middleOpacity = this.opts.secondaryOpacity;
+      uiOpts.bottomOpacity = this.opts.primaryOpacity;
     }
     drawPhoneScreenUI(ctx, { x: T, y: T, w: innerW, h: innerH }, uiOpts);
     ctx.restore();
