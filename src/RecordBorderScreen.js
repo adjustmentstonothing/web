@@ -338,7 +338,11 @@ export class RecordBorderScreen {
     const L = 1.5 * Math.max(w, h);
     const cx = w / 2;
     const cy = h / 2;
-    const startDeg = Number(this.opts.startAngleDeg);
+    let startDeg = Number(this.opts.startAngleDeg);
+    if (this.opts.mode === "listen") {
+      const listenDeg = Number(this.opts.listenStartAngleDeg);
+      if (Number.isFinite(listenDeg)) startDeg = listenDeg;
+    }
     const baseDeg = Number.isFinite(startDeg)
       ? startDeg
       : RECORD_BORDER_DEFAULTS.startAngleDeg;
