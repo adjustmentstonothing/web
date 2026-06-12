@@ -1,4 +1,5 @@
 import Stats from 'three/examples/jsm/libs/stats.module.js';
+import { LISTEN_SEQUENCE_DEFAULTS } from "./ListenSequence.js";
 import { RotatingPhone } from './RotatingPhone.js';
 
 const stats = new Stats();
@@ -20,16 +21,32 @@ if (uiToggle) {
 
 const app = document.getElementById('app');
 
-/** Fine-tune video inside the rounded mask. 1 = default fit. */
-const videoScaleX = 0.94;
-const videoScaleY = 0.97;
-const videoOffsetX = 0;
-const videoOffsetY = 0;
-/** true = red mask behind video (debug), false = black */
-const maskBgDebug = true;
+/** `record` | `listen` | `play` — play = canvas UI only (looping record ring) */
+const screenMode = 'record';
+
+/** Canvas UI opacity — top label (Record / Listen / Play) */
+const uiPrimaryOpacity = 1;
+/** Canvas UI opacity — bottom label, middle row, listen phase 1 rest & phase 2 fade-from */
+const uiSecondaryOpacity = 0.3;
+/** Record ring thickness — fraction of screen width (0.054 ≈ default) */
+const borderThickness = 0.060;
 
 const phoneOptions = {
-  screenVideoUrl: "/video/atn-ui-17pro4.mp4",
+  recordBorder: {
+    mode: screenMode === "listen" ? "listen" : "record",
+    primaryOpacity: uiPrimaryOpacity,
+    secondaryOpacity: uiSecondaryOpacity,
+    borderWidthPct: borderThickness,
+    ...LISTEN_SEQUENCE_DEFAULTS,
+    uiMode:
+      screenMode === "play"
+        ? "play"
+        : screenMode === "listen"
+          ? "listen"
+          : screenMode === "record"
+            ? "record"
+            : undefined,
+  },
   // speed: parseFloat(document.getElementById("speed")?.value ?? "1"),
   speed: 0,
   twoSided:
@@ -45,15 +62,8 @@ const phoneOptions = {
   envRotationDeg: parseFloat(document.getElementById("env-rot")?.value ?? "73"),
   envBlur: parseFloat(document.getElementById("env-blur")?.value ?? "0.04"),
   envIntensity: parseFloat(document.getElementById("env-int")?.value ?? "2.69"),
-  videoRounded: {
-    scaleX: videoScaleX,
-    scaleY: videoScaleY,
-    offsetX: videoOffsetX,
-    offsetY: videoOffsetY,
-    maskBgColor: maskBgDebug ? "#ff0000" : "#000000",
-  },
   uv: {
-    rotationDeg: parseFloat(document.getElementById("uv-rot")?.value ?? "-90"),
+    rotationDeg: parseFloat(document.getElementById("uv-rot")?.value ?? "0"),
     offsetX: parseFloat(document.getElementById("uv-ox")?.value ?? "0"),
     offsetY: parseFloat(document.getElementById("uv-oy")?.value ?? "0"),
     repeatX: parseFloat(document.getElementById("uv-rx")?.value ?? "1"),
@@ -65,12 +75,14 @@ const phoneOptions = {
 
 const phone = new RotatingPhone(app, phoneOptions);
 
-/** Console: `recordBorder({ borderWidthPct: 0.03 })` or `recordBorder({ screenAspectW: 700, screenAspectH: 1516 })` */
+/** Console: `recordBorder({ borderWidthPct: 0.03 })` or `recordBorder({ mode: 'listen' })` */
 window.recordBorder = (p) => phone.setRecordBorderParams(p);
+/** Console: `recordReplay()` — restart listen / record intro sequence */
+window.recordReplay = () => phone.resetRecordBorderSequence();
+/** Console: `phoneUi({ uiMode: 'play' })` or `phoneUi({ topLabel: 'Listen' })` */
+window.phoneUi = (p) => phone.setRecordBorderParams(p);
 /** Console: `screenInsets()` — ring inset px, inner rect, source crop px */
 window.screenInsets = () => phone.getRecordBorderInsetInfo();
-/** Console: `videoMask()` or `videoMask({ scaleX: 0.95 })` */
-window.videoMask = (p) => (p ? phone.setVideoRoundedParams(p) : phone.getVideoMaskInfo());
 
 const origComposerRender = phone.composer.render.bind(phone.composer);
 phone.composer.render = (deltaTime) => {
