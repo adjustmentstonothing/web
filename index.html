@@ -38,6 +38,14 @@
         flex-shrink: 0;
         transform-origin: center center;
       }
+      #app.scene-loading {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #app.scene-ready {
+        opacity: 1;
+        transition: opacity 0.4s ease;
+      }
       @media (min-width: 768px) {
         #app {
           transform: scale(0.9);
@@ -230,8 +238,8 @@
         <summary>Screen UV</summary>
         <div class="uv-row">
           <label for="uv-rot">Rot</label>
-          <input id="uv-rot" type="range" min="-180" max="180" step="1" value="-90" />
-          <output id="uv-rot-v">-90°</output>
+          <input id="uv-rot" type="range" min="-180" max="180" step="1" value="0" />
+          <output id="uv-rot-v">0°</output>
         </div>
         <div class="uv-row">
           <label for="uv-ox">Off X</label>
