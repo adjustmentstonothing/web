@@ -30,6 +30,9 @@ export const LISTEN_SEQUENCE_DEFAULTS = {
 
   /** After status fades out: Listen returns on same button (ease-in-out) */
   listenPrimaryRestoreMs: 2000,
+
+  /** Bright wedge at sequence start — 0° = top-left on screen (record mode uses -90°) */
+  listenStartAngleDeg: 40,
 };
 
 function easeInOut(t) {
@@ -136,8 +139,8 @@ export function computeListenTimeline(elapsed, opts = {}) {
     const pauseMs = Number(o.listenSecondaryPauseMs) || 300;
     const fadeMs = Number(o.listenSecondaryFadeInMs) || 2000;
     const secStart = Math.max(0, p2 - pauseMs - fadeMs);
-    let middleOpacity = 0;
-    let bottomOpacity = 0;
+    let middleOpacity = fadeFrom;
+    let bottomOpacity = fadeFrom;
     if (t2 >= secStart) {
       const ts = t2 - secStart;
       if (ts < pauseMs) {

@@ -22,7 +22,7 @@ if (uiToggle) {
 const app = document.getElementById('app');
 
 /** `record` | `listen` | `play` — play = canvas UI only (looping record ring) */
-const screenMode = 'record';
+const screenMode = "record";
 
 /** Canvas UI opacity — top label (Record / Listen / Play) */
 const uiPrimaryOpacity = 1;
