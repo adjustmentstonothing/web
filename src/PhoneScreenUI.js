@@ -21,7 +21,7 @@ export const PHONE_UI_TYPOGRAPHY = [
 /** Top / bottom labels per screen mode */
 export const PHONE_UI_PRESETS = {
   listen: { top: "Listen", bottom: "Record" },
-  record: { top: "Record", bottom: "Listen" },
+  record: { top: "Listen", bottom: "Record" },
   play: { top: "Play", bottom: "Record" },
 };
 
