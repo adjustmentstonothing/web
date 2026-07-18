@@ -6,12 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "compress:model": "gltf-transform draco assets/ATN_iphone_edt_02.source.glb public/ATN_iphone_edt_02.glb --quantize-position 16 --quantize-normal 12 --quantize-texcoord 14 --encode-speed 0 --decode-speed 5"
   },
   "dependencies": {
     "three": "^0.161.0"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.4.1",
     "vite": "^5.4.0"
   }
 }

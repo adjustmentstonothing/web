@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
@@ -76,6 +77,7 @@ export class RotatingPhone {
     this._baseEnvIntensity = new WeakMap();
     this._modelLoadStarted = false;
     this._loadObserver = null;
+    this._dracoLoader = null;
 
     this.BASE_ROT_SPEED = (2 * Math.PI) / 18;
 
@@ -299,6 +301,19 @@ export class RotatingPhone {
     this._loadObserver.observe(observeTarget);
   }
 
+  _setSceneLoaderProgress(ratio) {
+    const el = document.getElementById("scene-loader-bar");
+    if (el) {
+      const pct = Math.max(0, Math.min(1, ratio)) * 100;
+      el.style.transform = `scaleX(${pct / 100})`;
+    }
+    this.opts.onProgress?.(ratio);
+  }
+
+  _hideSceneLoader() {
+    document.getElementById("scene-loader")?.classList.add("is-done");
+  }
+
   _revealScene() {
     if (this.disposed) return;
     this.recordScreen?.resetSequence?.();
@@ -308,6 +323,7 @@ export class RotatingPhone {
 
     requestAnimationFrame(() => {
       if (this.disposed) return;
+      this._hideSceneLoader();
       this.container.classList.remove("scene-loading");
       this.container.classList.add("scene-ready");
       this.opts.onReady?.();
@@ -315,7 +331,12 @@ export class RotatingPhone {
   }
 
   _loadModel() {
+    const draco = new DRACOLoader();
+    draco.setDecoderPath("/draco/gltf/");
+    this._dracoLoader = draco;
+
     const loader = new GLTFLoader();
+    loader.setDRACOLoader(draco);
     loader.load(
       this.opts.modelUrl,
       (gltf) => {
@@ -378,14 +399,19 @@ export class RotatingPhone {
         this.rotator.add(model);
         this.loadedModel = model;
         this.modelLoaded = true;
+        this._setSceneLoaderProgress(1);
         this._applyEnvIntensity(this.envIntensityFactor);
         if (this._twoSided) this._applyTwoSided(true);
         this._syncCameraFitSize();
         this._revealScene();
       },
-      undefined,
+      (xhr) => {
+        if (!xhr || !xhr.total) return;
+        this._setSceneLoaderProgress(xhr.loaded / xhr.total);
+      },
       (err) => {
         console.error("[RotatingPhone] load failed", err);
+        this._hideSceneLoader();
         this.container.classList.remove("scene-loading");
       },
     );
@@ -870,6 +896,8 @@ export class RotatingPhone {
     document.removeEventListener("visibilitychange", this._onVisibility);
     this._resizeObserver?.disconnect();
     this._loadObserver?.disconnect();
+    this._dracoLoader?.dispose?.();
+    this._dracoLoader = null;
 
     this.scene.traverse((obj) => {
       if (obj.isMesh) {

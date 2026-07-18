@@ -1,25 +1,40 @@
-import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { LISTEN_SEQUENCE_DEFAULTS } from "./ListenSequence.js";
-import { RotatingPhone } from './RotatingPhone.js';
+import { RotatingPhone } from "./RotatingPhone.js";
 
-const stats = new Stats();
-stats.dom.id = 'stats-dom';
-stats.dom.style.position = 'fixed';
-stats.dom.style.top = '12px';
-stats.dom.style.left = '12px';
-stats.dom.style.opacity = '0.6';
-stats.dom.style.zIndex = '20';
-const sceneRoot = document.getElementById('scene-root');
-(sceneRoot ?? document.body).appendChild(stats.dom);
+const sceneRoot = document.getElementById("scene-root");
 
-const uiToggle = document.getElementById('ui-toggle');
+let attachDevStats = () => {};
+if (import.meta.env.DEV) {
+  const { default: Stats } =
+    await import("three/examples/jsm/libs/stats.module.js");
+  const stats = new Stats();
+  stats.dom.id = "stats-dom";
+  stats.dom.style.position = "fixed";
+  stats.dom.style.top = "12px";
+  stats.dom.style.left = "12px";
+  stats.dom.style.opacity = "0.6";
+  stats.dom.style.zIndex = "20";
+  (sceneRoot ?? document.body).appendChild(stats.dom);
+
+  attachDevStats = (phone) => {
+    if (!phone?.composer) return;
+    const origComposerRender = phone.composer.render.bind(phone.composer);
+    phone.composer.render = (deltaTime) => {
+      stats.begin();
+      origComposerRender(deltaTime);
+      stats.end();
+    };
+  };
+}
+
+const uiToggle = document.getElementById("ui-toggle");
 if (uiToggle) {
-  uiToggle.addEventListener('click', () => {
-    document.body.classList.toggle('ui-hidden');
+  uiToggle.addEventListener("click", () => {
+    document.body.classList.toggle("ui-hidden");
   });
 }
 
-const app = document.getElementById('app');
+const app = document.getElementById("app");
 
 /** `record` | `listen` | `play` — play = canvas UI only (looping record ring) */
 const screenMode = "record";
@@ -29,9 +44,10 @@ const uiPrimaryOpacity = 1;
 /** Canvas UI opacity — bottom label, middle row, listen phase 1 rest & phase 2 fade-from */
 const uiSecondaryOpacity = 0.3;
 /** Record ring thickness — fraction of screen width (0.054 ≈ default) */
-const borderThickness = 0.060;
+const borderThickness = 0.06;
 
 const phoneOptions = {
+  lazyLoad: false,
   recordBorder: {
     mode: screenMode === "listen" ? "listen" : "record",
     primaryOpacity: uiPrimaryOpacity,
@@ -74,6 +90,7 @@ const phoneOptions = {
 };
 
 const phone = new RotatingPhone(app, phoneOptions);
+attachDevStats(phone);
 
 /** Console: `recordBorder({ borderWidthPct: 0.03 })` or `recordBorder({ mode: 'listen' })` */
 window.recordBorder = (p) => phone.setRecordBorderParams(p);
@@ -84,66 +101,59 @@ window.phoneUi = (p) => phone.setRecordBorderParams(p);
 /** Console: `screenInsets()` — ring inset px, inner rect, source crop px */
 window.screenInsets = () => phone.getRecordBorderInsetInfo();
 
-const origComposerRender = phone.composer.render.bind(phone.composer);
-phone.composer.render = (deltaTime) => {
-  stats.begin();
-  origComposerRender(deltaTime);
-  stats.end();
-};
-
 const bind = (id, fn) => {
   const el = document.getElementById(id);
-  if (el) el.addEventListener('input', (e) => fn(parseFloat(e.target.value)));
+  if (el) el.addEventListener("input", (e) => fn(parseFloat(e.target.value)));
 };
 
-bind('speed', (v) => phone.setSpeed(v));
-bind('thickness', (v) => phone.setThickness(v));
-bind('gap', (v) => phone.setGap(v));
-bind('scale', (v) => phone.setScale(v));
-bind('brightness', (v) => phone.setBrightness(v));
-bind('softbox', (v) => phone.setSoftbox(v));
+bind("speed", (v) => phone.setSpeed(v));
+bind("thickness", (v) => phone.setThickness(v));
+bind("gap", (v) => phone.setGap(v));
+bind("scale", (v) => phone.setScale(v));
+bind("brightness", (v) => phone.setBrightness(v));
+bind("softbox", (v) => phone.setSoftbox(v));
 
-const envRotOut = document.getElementById('env-rot-v');
-bind('env-rot', (v) => {
+const envRotOut = document.getElementById("env-rot-v");
+bind("env-rot", (v) => {
   phone.setEnvRotationDeg(v);
-  if (envRotOut) envRotOut.textContent = v + '°';
+  if (envRotOut) envRotOut.textContent = v + "°";
 });
-const envBlurOut = document.getElementById('env-blur-v');
-bind('env-blur', (v) => {
+const envBlurOut = document.getElementById("env-blur-v");
+bind("env-blur", (v) => {
   phone.setEnvBlur(v);
   if (envBlurOut) envBlurOut.textContent = v.toFixed(2);
 });
-const envIntOut = document.getElementById('env-int-v');
-bind('env-int', (v) => {
+const envIntOut = document.getElementById("env-int-v");
+bind("env-int", (v) => {
   phone.setEnvIntensity(v);
   if (envIntOut) envIntOut.textContent = v.toFixed(2);
 });
 
-const twoSidedBtn = document.getElementById('two-sided');
+const twoSidedBtn = document.getElementById("two-sided");
 if (twoSidedBtn) {
-  twoSidedBtn.addEventListener('click', () => {
-    const active = twoSidedBtn.classList.toggle('active');
+  twoSidedBtn.addEventListener("click", () => {
+    const active = twoSidedBtn.classList.toggle("active");
     phone.setTwoSided(active);
   });
 }
 
 const uvIds = {
-  rot: ['uv-rot', 'rotationDeg'],
-  ox: ['uv-ox', 'offsetX'],
-  oy: ['uv-oy', 'offsetY'],
-  rx: ['uv-rx', 'repeatX'],
-  ry: ['uv-ry', 'repeatY'],
-  cx: ['uv-cx', 'centerX'],
-  cy: ['uv-cy', 'centerY'],
+  rot: ["uv-rot", "rotationDeg"],
+  ox: ["uv-ox", "offsetX"],
+  oy: ["uv-oy", "offsetY"],
+  rx: ["uv-rx", "repeatX"],
+  ry: ["uv-ry", "repeatY"],
+  cx: ["uv-cx", "centerX"],
+  cy: ["uv-cy", "centerY"],
 };
 const uvOut = {
-  rot: document.getElementById('uv-rot-v'),
-  ox: document.getElementById('uv-ox-v'),
-  oy: document.getElementById('uv-oy-v'),
-  rx: document.getElementById('uv-rx-v'),
-  ry: document.getElementById('uv-ry-v'),
-  cx: document.getElementById('uv-cx-v'),
-  cy: document.getElementById('uv-cy-v'),
+  rot: document.getElementById("uv-rot-v"),
+  ox: document.getElementById("uv-ox-v"),
+  oy: document.getElementById("uv-oy-v"),
+  rx: document.getElementById("uv-rx-v"),
+  ry: document.getElementById("uv-ry-v"),
+  cx: document.getElementById("uv-cx-v"),
+  cy: document.getElementById("uv-cy-v"),
 };
 function applyUVFromUI() {
   const next = {};
@@ -152,7 +162,7 @@ function applyUVFromUI() {
     if (el) next[prop] = parseFloat(el.value);
   }
   phone.setUV(next);
-  if (uvOut.rot) uvOut.rot.textContent = next.rotationDeg + '°';
+  if (uvOut.rot) uvOut.rot.textContent = next.rotationDeg + "°";
   if (uvOut.ox) uvOut.ox.textContent = next.offsetX.toFixed(2);
   if (uvOut.oy) uvOut.oy.textContent = next.offsetY.toFixed(2);
   if (uvOut.rx) uvOut.rx.textContent = next.repeatX.toFixed(2);
@@ -162,19 +172,19 @@ function applyUVFromUI() {
 }
 for (const [, [id]] of Object.entries(uvIds)) {
   const el = document.getElementById(id);
-  if (el) el.addEventListener('input', applyUVFromUI);
+  if (el) el.addEventListener("input", applyUVFromUI);
 }
 
-const introCapture = document.getElementById('intro-capture');
-const homeMain = document.querySelector('.home-main');
+const introCapture = document.getElementById("intro-capture");
+const homeMain = document.querySelector(".home-main");
 
-if (document.body.classList.contains('home')) {
-  introCapture?.addEventListener('pointerdown', () => {
-    document.body.classList.add('home-revealed');
+if (document.body.classList.contains("home")) {
+  introCapture?.addEventListener("pointerdown", () => {
+    document.body.classList.add("home-revealed");
   });
 
-  homeMain?.addEventListener('pointerdown', () => {
-    if (!document.body.classList.contains('home-revealed')) return;
-    document.body.classList.remove('home-revealed');
+  homeMain?.addEventListener("pointerdown", () => {
+    if (!document.body.classList.contains("home-revealed")) return;
+    document.body.classList.remove("home-revealed");
   });
 }
