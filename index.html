@@ -12,6 +12,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="Adjustments to Nothing" />
     <link rel="manifest" href="/site.webmanifest" />
+    <link rel="preload" href="/ATN_iphone_edt_02.glb" as="fetch" crossorigin />
     <link rel="stylesheet" href="/src/subpages.css" />
     <style>
       html, body {
@@ -45,6 +46,31 @@
       #app.scene-ready {
         opacity: 1;
         transition: opacity 0.4s ease;
+      }
+      #scene-loader {
+        position: fixed;
+        left: 50%;
+        bottom: max(28px, env(safe-area-inset-bottom));
+        transform: translateX(-50%);
+        z-index: 4;
+        width: min(120px, 40vw);
+        height: 1px;
+        background: rgba(255, 255, 255, 0.12);
+        pointer-events: none;
+        opacity: 1;
+        transition: opacity 0.35s ease;
+      }
+      #scene-loader.is-done {
+        opacity: 0;
+      }
+      #scene-loader-bar {
+        display: block;
+        height: 100%;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.45);
+        transform: scaleX(0);
+        transform-origin: left center;
+        transition: transform 0.15s ease-out;
       }
       @media (min-width: 768px) {
         #app {
@@ -198,6 +224,9 @@
     </style>
   </head>
   <body class="ui-hidden home">
+    <div id="scene-loader" aria-hidden="true">
+      <span id="scene-loader-bar"></span>
+    </div>
     <div id="scene-root" class="scene-root">
     <div id="app"></div>
     <div id="ui">
