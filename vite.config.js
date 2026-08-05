@@ -11,6 +11,7 @@ export default defineConfig({
         main: resolve(root, 'index.html'),
         privacyPolicy: resolve(root, 'privacy-policy/index.html'),
         support: resolve(root, 'support/index.html'),
+        verein: resolve(root, 'verein/index.html'),
       },
     },
   },
