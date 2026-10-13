@@ -6,6 +6,19 @@
     <meta name="theme-color" content="#000000" />
     <meta name="color-scheme" content="dark" />
     <title>Adjustments to Nothing</title>
+    <meta name="description" content="Inner and outer merge, sound moves over. Recordings return on their own. Each has the same length and erases itself after playback." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Adjustments to Nothing" />
+    <meta property="og:title" content="Adjustments to Nothing" />
+    <meta property="og:description" content="Inner and outer merge, sound moves over. Recordings return on their own. Each has the same length and erases itself after playback." />
+    <meta property="og:url" content="https://adjustmentstonothing.com/" />
+    <meta property="og:image" content="https://adjustmentstonothing.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Adjustments to Nothing" />
+    <meta name="twitter:description" content="Inner and outer merge, sound moves over. Recordings return on their own. Each has the same length and erases itself after playback." />
+    <meta name="twitter:image" content="https://adjustmentstonothing.com/og.png" />
     <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="shortcut icon" href="/favicon.ico" />
@@ -79,231 +92,14 @@
         }
       }
       canvas { display: block; }
-      #ui {
-        position: fixed;
-        left: 50%;
-        bottom: 28px;
-        transform: translateX(-50%);
-        z-index: 5;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 10px 14px;
-        font: 11px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: rgba(255,255,255,0.35);
-        opacity: 0.35;
-        transition: opacity .25s ease, color .25s ease;
-        user-select: none;
-      }
-      #ui:hover, #ui:focus-within { opacity: 1; color: rgba(255,255,255,0.85); }
-      #speed, #gap, #brightness, #softbox, #scale, #thickness {
-        -webkit-appearance: none;
-        appearance: none;
-        background: transparent;
-        width: 120px;
-        height: 18px;
-        cursor: ew-resize;
-        touch-action: manipulation;
-      }
-      #speed::-webkit-slider-runnable-track, #gap::-webkit-slider-runnable-track, #brightness::-webkit-slider-runnable-track, #softbox::-webkit-slider-runnable-track, #scale::-webkit-slider-runnable-track, #thickness::-webkit-slider-runnable-track {
-        height: 1px;
-        background: rgba(255,255,255,0.3);
-      }
-      #speed::-moz-range-track, #gap::-moz-range-track, #brightness::-moz-range-track, #softbox::-moz-range-track, #scale::-moz-range-track, #thickness::-moz-range-track {
-        height: 1px;
-        background: rgba(255,255,255,0.3);
-      }
-      #speed::-webkit-slider-thumb, #gap::-webkit-slider-thumb, #brightness::-webkit-slider-thumb, #softbox::-webkit-slider-thumb, #scale::-webkit-slider-thumb, #thickness::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 10px;
-        height: 10px;
-        background: #fff;
-        border-radius: 50%;
-        margin-top: -4.5px;
-      }
-      #speed::-moz-range-thumb, #gap::-moz-range-thumb, #brightness::-moz-range-thumb, #softbox::-moz-range-thumb, #scale::-moz-range-thumb, #thickness::-moz-range-thumb {
-        width: 10px;
-        height: 10px;
-        background: #fff;
-        border-radius: 50%;
-        border: none;
-      }
-      #two-sided, .btn {
-        background: transparent;
-        border: 1px solid rgba(255,255,255,0.25);
-        color: inherit;
-        font: inherit;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        padding: 6px 12px;
-        border-radius: 999px;
-        cursor: pointer;
-        transition: background .2s ease, color .2s ease, border-color .2s ease;
-        user-select: none;
-      }
-      #two-sided:hover, .btn:hover { border-color: rgba(255,255,255,0.55); }
-      #two-sided.active {
-        background: rgba(255,255,255,0.9);
-        color: #000;
-        border-color: transparent;
-      }
-      #ui-toggle {
-        position: fixed;
-        right: 18px;
-        bottom: 18px;
-        width: 26px;
-        height: 26px;
-        border: 1px solid rgba(255,255,255,0.28);
-        background: transparent;
-        color: rgba(255,255,255,0.5);
-        border-radius: 50%;
-        cursor: pointer;
-        font: 14px/1 -apple-system, system-ui, sans-serif;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 30;
-        opacity: 0.45;
-        transition: opacity .2s ease, border-color .2s ease, color .2s ease;
-        padding: 0;
-        user-select: none;
-      }
-      #ui-toggle:hover { opacity: 1; border-color: rgba(255,255,255,0.7); color: #fff; }
-      body.ui-hidden #ui,
-      body.ui-hidden #stats-dom { display: none; }
-      body.ui-hidden #ui-toggle { opacity: 0.25; }
-      #ui .row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-      #uv-panel, #env-panel {
-        margin-top: 10px;
-        min-width: 240px;
-      }
-      #uv-panel > summary, #env-panel > summary {
-        cursor: pointer;
-        list-style: none;
-        text-align: center;
-        opacity: 0.7;
-      }
-      #uv-panel > summary::-webkit-details-marker,
-      #env-panel > summary::-webkit-details-marker { display: none; }
-      #uv-panel[open] > summary, #env-panel[open] > summary { opacity: 1; }
-      .uv-row {
-        display: grid;
-        grid-template-columns: 56px 1fr 40px;
-        align-items: center;
-        gap: 8px;
-        margin-top: 8px;
-        font-size: 10px;
-      }
-      .uv-row input[type=range] {
-        -webkit-appearance: none;
-        appearance: none;
-        background: transparent;
-        height: 14px;
-        width: 100%;
-        cursor: ew-resize;
-      }
-      .uv-row input[type=range]::-webkit-slider-runnable-track { height: 1px; background: rgba(255,255,255,0.25); }
-      .uv-row input[type=range]::-moz-range-track { height: 1px; background: rgba(255,255,255,0.25); }
-      .uv-row input[type=range]::-webkit-slider-thumb {
-        -webkit-appearance: none; appearance: none;
-        width: 8px; height: 8px; background: #fff; border-radius: 50%;
-        margin-top: -3.5px;
-      }
-      .uv-row input[type=range]::-moz-range-thumb {
-        width: 8px; height: 8px; background: #fff; border-radius: 50%; border: none;
-      }
-      .uv-row output {
-        font-variant-numeric: tabular-nums;
-        text-align: right;
-      }
     </style>
   </head>
-  <body class="ui-hidden home">
+  <body class="home">
     <div id="scene-loader" aria-hidden="true">
       <span id="scene-loader-bar"></span>
     </div>
     <div id="scene-root" class="scene-root">
-    <div id="app"></div>
-    <div id="ui">
-      <div class="row">
-        <label for="speed">Speed</label>
-        <input id="speed" type="range" min="0" max="3" step="0.01" value="1" />
-        <button id="two-sided" type="button">Two-sided</button>
-        <label for="thickness">Thick</label>
-        <input id="thickness" type="range" min="0.05" max="1" step="0.01" value="1" />
-        <label for="gap">Gap</label>
-        <input id="gap" type="range" min="0" max="3" step="0.01" value="0" />
-        <label for="scale">Scale</label>
-        <input id="scale" type="range" min="0.1" max="3" step="0.01" value="2" />
-        <label for="brightness">Bright</label>
-        <input id="brightness" type="range" min="0" max="2" step="0.01" value="0.9" />
-        <label for="softbox">Softbox</label>
-        <input id="softbox" type="range" min="0" max="80" step="0.5" value="24" />
-      </div>
-      <details id="env-panel">
-        <summary>HDRI</summary>
-        <div class="uv-row">
-          <label for="env-rot">Rot</label>
-          <input id="env-rot" type="range" min="-180" max="180" step="1" value="73" />
-          <output id="env-rot-v">73°</output>
-        </div>
-        <div class="uv-row">
-          <label for="env-blur">Blur</label>
-          <input id="env-blur" type="range" min="0" max="1" step="0.005" value="0.04" />
-          <output id="env-blur-v">0.04</output>
-        </div>
-        <div class="uv-row">
-          <label for="env-int">Refl</label>
-          <input id="env-int" type="range" min="0" max="3" step="0.01" value="2.69" />
-          <output id="env-int-v">2.69</output>
-        </div>
-      </details>
-      <details id="uv-panel">
-        <summary>Screen UV</summary>
-        <div class="uv-row">
-          <label for="uv-rot">Rot</label>
-          <input id="uv-rot" type="range" min="-180" max="180" step="1" value="0" />
-          <output id="uv-rot-v">0°</output>
-        </div>
-        <div class="uv-row">
-          <label for="uv-ox">Off X</label>
-          <input id="uv-ox" type="range" min="-1" max="1" step="0.005" value="0" />
-          <output id="uv-ox-v">0</output>
-        </div>
-        <div class="uv-row">
-          <label for="uv-oy">Off Y</label>
-          <input id="uv-oy" type="range" min="-1" max="1" step="0.005" value="0" />
-          <output id="uv-oy-v">0</output>
-        </div>
-        <div class="uv-row">
-          <label for="uv-rx">Scale X</label>
-          <input id="uv-rx" type="range" min="0.1" max="3" step="0.01" value="1" />
-          <output id="uv-rx-v">1.00</output>
-        </div>
-        <div class="uv-row">
-          <label for="uv-ry">Scale Y</label>
-          <input id="uv-ry" type="range" min="0.1" max="3" step="0.01" value="1" />
-          <output id="uv-ry-v">1.00</output>
-        </div>
-        <div class="uv-row">
-          <label for="uv-cx">Cen X</label>
-          <input id="uv-cx" type="range" min="0" max="1" step="0.01" value="0.5" />
-          <output id="uv-cx-v">0.50</output>
-        </div>
-        <div class="uv-row">
-          <label for="uv-cy">Cen Y</label>
-          <input id="uv-cy" type="range" min="0" max="1" step="0.01" value="0.5" />
-          <output id="uv-cy-v">0.50</output>
-        </div>
-      </details>
-    </div>
-    <button id="ui-toggle" type="button" aria-label="Toggle controls">○</button>
+      <div id="app"></div>
     </div>
     <div id="home-content" class="home-shell">
       <div class="subpage-main home-main">
