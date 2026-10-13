@@ -179,12 +179,21 @@ const introCapture = document.getElementById("intro-capture");
 const homeMain = document.querySelector(".home-main");
 
 if (document.body.classList.contains("home")) {
-  introCapture?.addEventListener("pointerdown", () => {
+  const showStaticHome = () => {
     document.body.classList.add("home-revealed");
-  });
+    phone.setPaused(true);
+  };
 
-  homeMain?.addEventListener("pointerdown", () => {
+  const showPhoneScene = () => {
     if (!document.body.classList.contains("home-revealed")) return;
     document.body.classList.remove("home-revealed");
-  });
+    // Resume + resize after layout settles so the phone doesn't jump
+    requestAnimationFrame(() => {
+      phone.setPaused(false);
+      requestAnimationFrame(() => phone.resize());
+    });
+  };
+
+  introCapture?.addEventListener("pointerdown", showStaticHome);
+  homeMain?.addEventListener("pointerdown", showPhoneScene);
 }

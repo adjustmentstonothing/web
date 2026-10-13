@@ -73,6 +73,7 @@ export class RotatingPhone {
     this.envRT = null;
     this.hdrTexture = null;
     this.disposed = false;
+    this._paused = false;
     this._twoSided = this.opts.twoSided;
     this._baseEnvIntensity = new WeakMap();
     this._modelLoadStarted = false;
@@ -113,7 +114,7 @@ export class RotatingPhone {
       powerPreference: "high-performance",
       stencil: false,
     });
-    const dpr = Math.min(window.devicePixelRatio, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     renderer.setPixelRatio(dpr);
     renderer.setSize(
       this.container.clientWidth || window.innerWidth,
@@ -151,8 +152,9 @@ export class RotatingPhone {
     const w = this.container.clientWidth || window.innerWidth;
     const h = this.container.clientHeight || window.innerHeight;
     const dpr = this.renderer.getPixelRatio();
-    const renderTarget = new THREE.WebGLRenderTarget(w * dpr, h * dpr, {
+    const renderTarget = new THREE.WebGLRenderTarget(1, 1, {
       samples: 4,
+      type: THREE.HalfFloatType,
     });
     this.composer = new EffectComposer(this.renderer, renderTarget);
     this.composer.setPixelRatio(dpr);
@@ -842,7 +844,7 @@ export class RotatingPhone {
     if (this.disposed) return;
     const w = this.container.clientWidth || window.innerWidth;
     const h = this.container.clientHeight || window.innerHeight;
-    const ndpr = Math.min(window.devicePixelRatio, 2);
+    const ndpr = Math.min(window.devicePixelRatio || 1, 2);
     this.renderer.setPixelRatio(ndpr);
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
@@ -857,14 +859,32 @@ export class RotatingPhone {
   _onVisibility() {
     if (document.hidden) {
       this.clock.stop();
-    } else {
+    } else if (!this._paused) {
       this.clock.start();
       this.clock.getDelta();
     }
   }
 
+  /** Pause RAF work while the static home shell is shown (scene stays mounted at opacity 0). */
+  setPaused(paused) {
+    const next = Boolean(paused);
+    if (this._paused === next) return;
+    this._paused = next;
+    if (next) {
+      this.clock.stop();
+    } else {
+      this.clock.start();
+      this.clock.getDelta();
+      this.resize();
+    }
+  }
+
   _animate() {
     if (this.disposed) return;
+    if (this._paused || document.hidden) {
+      this._rafId = requestAnimationFrame(this._animate);
+      return;
+    }
     const dt = this.clock.getDelta();
     if (this.modelLoaded) {
       this.rotator.rotation.y +=

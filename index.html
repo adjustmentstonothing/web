@@ -46,11 +46,18 @@
       }
       #app {
         position: relative;
-        /* width: min(100vmin, 800px); */
+        width: min(100vw, calc(90dvh * 9 / 19.5));
         height: 90vh;
+        height: 90dvh;
         background: #000;
         flex-shrink: 0;
+        transform: scale(0.94);
         transform-origin: center center;
+      }
+      @media (min-width: 768px) {
+        #app {
+          transform: scale(0.9);
+        }
       }
       #app.scene-loading {
         opacity: 0;
@@ -85,11 +92,6 @@
         transform: scaleX(0);
         transform-origin: left center;
         transition: transform 0.15s ease-out;
-      }
-      @media (min-width: 768px) {
-        #app {
-          transform: scale(0.9);
-        }
       }
       canvas { display: block; }
     </style>
