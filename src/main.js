@@ -196,4 +196,5 @@ if (document.body.classList.contains("home")) {
 
   introCapture?.addEventListener("pointerdown", showStaticHome);
   homeMain?.addEventListener("pointerdown", showPhoneScene);
+  document.addEventListener("atn:show-phone-scene", showPhoneScene);
 }
