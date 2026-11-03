@@ -37,7 +37,9 @@ function ensureOverlay() {
       </div>
     </div>
     <div class="get-app-overlay-footer">
-      <span class="get-app-overlay-title">Get the App</span>
+      <button type="button" class="get-app-overlay-title" data-get-app-close>
+        Get the App
+      </button>
       <ul class="get-app-overlay-nav" aria-label="Site">
         <li><a href="/privacy-policy/">Privacy Policy</a></li>
         <li><a href="/support/">Support</a></li>
@@ -48,7 +50,8 @@ function ensureOverlay() {
 
   const close = () => hideOverlay(overlay);
 
-  const goHomeSplash = () => {
+  const goHomeSplash = (event) => {
+    event.stopPropagation();
     close();
     if (document.body.classList.contains("home")) {
       document.dispatchEvent(new CustomEvent("atn:show-phone-scene"));
@@ -59,8 +62,10 @@ function ensureOverlay() {
 
   overlay.querySelector("[data-get-app-home]")?.addEventListener("click", goHomeSplash);
 
+  // Black empty areas + "Get the App" → back to intro text (close overlay)
   overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) close();
+    if (event.target.closest("a, [data-get-app-home], .get-app-overlay-block")) return;
+    close();
   });
 
   document.addEventListener("keydown", (event) => {

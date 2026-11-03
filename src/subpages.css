@@ -329,6 +329,12 @@ body.home .home-copy a {
     max(var(--page-padding), env(safe-area-inset-bottom))
     max(var(--page-padding), env(safe-area-inset-left));
   box-sizing: border-box;
+  cursor: pointer;
+}
+
+.get-app-overlay-block,
+.get-app-overlay-block * {
+  cursor: default;
 }
 
 .get-app-overlay.is-open {
@@ -396,6 +402,7 @@ body.home .home-copy a {
   text-decoration: underline;
   text-underline-offset: 0.2em;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .get-app-overlay-footer {
@@ -406,11 +413,17 @@ body.home .home-copy a {
 .get-app-overlay-title {
   display: block;
   margin: 0 0 clamp(0.45rem, 1vh, 0.65rem);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
   font-size: var(--store-title-font-size);
   line-height: var(--store-title-line-height);
   letter-spacing: var(--store-title-letter-spacing);
   font-weight: var(--font-weight);
   color: var(--text);
+  text-align: left;
+  cursor: pointer;
 }
 
 .get-app-overlay-nav {
