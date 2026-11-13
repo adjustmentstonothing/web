@@ -63,9 +63,9 @@
         opacity: 0;
         pointer-events: none;
       }
+      /* Snap visible when ready — no fade (avoids a black beat on load / fullscreen) */
       #app.scene-ready {
         opacity: 1;
-        transition: opacity 0.4s ease;
       }
       #scene-loader {
         display: none;

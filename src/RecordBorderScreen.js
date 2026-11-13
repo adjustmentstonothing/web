@@ -6,6 +6,8 @@ import {
 } from "./PhoneScreenUI.js";
 import {
   computeListenTimeline,
+  listenFullBorderAtMs,
+  listenSequenceDurationMs,
   LISTEN_SEQUENCE_DEFAULTS,
 } from "./ListenSequence.js";
 
@@ -32,6 +34,10 @@ export const RECORD_BORDER_DEFAULTS = {
   screenAspectH: 1516,
   /** Ring band: fraction of canvas width from each edge */
   borderWidthPct: 0.054,
+  /** Pull outer ring edge in from canvas border (avoids texel-edge crawl) */
+  ringEdgeInsetPx: 10,
+  /** Soften ring edges when compositing (canvas blur, px) */
+  ringFeatherPx: 2.5,
   /** Outer corners: fraction of min(canvas w, h) */
   outerRadiusPct: 0.15,
   /**
@@ -40,7 +46,7 @@ export const RECORD_BORDER_DEFAULTS = {
    */
   innerRadiusPct: 0.11,
   gradientSize: 116,
-  gradientSpeed: 560,
+  gradientSpeed: 1260,
   /**
    * Bright wedge direction in the **canvas bitmap** (° clockwise from +x). Combined with `spin` inside
    * `createConicGradient` (not separate `ctx.rotate`) so this value actually affects rendering.
@@ -109,10 +115,14 @@ export class RecordBorderScreen {
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.wrapS = THREE.ClampToEdgeWrapping;
     this.texture.wrapT = THREE.ClampToEdgeWrapping;
-    this.texture.generateMipmaps = true;
-    this.texture.minFilter = THREE.LinearMipmapLinearFilter;
+    // No mipmaps — thin bright ring crawls less under perspective / recording
+    this.texture.generateMipmaps = false;
+    this.texture.minFilter = THREE.LinearFilter;
     this.texture.magFilter = THREE.LinearFilter;
     this.texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+    this._ringScratch = null;
+    this._ringScratchCtx = null;
 
     this._redraw();
   }
@@ -155,6 +165,18 @@ export class RecordBorderScreen {
     this._prevSpinWallMs = null;
     this._redraw();
     this.texture.needsUpdate = true;
+  }
+
+  /** True once listen sequence shows the full white border after deletion. */
+  shouldFreezeModelRotation() {
+    if (this.opts.mode !== "listen") return false;
+    return this._elapsedMs() >= listenFullBorderAtMs(this.opts);
+  }
+
+  /** True when listen loop should restart (silence ended, UI dimmed). */
+  shouldRestartListenLoop() {
+    if (this.opts.mode !== "listen" || !this.opts.listenLoop) return false;
+    return this._elapsedMs() >= listenSequenceDurationMs(this.opts);
   }
 
   _resolvedUiMode() {
@@ -279,7 +301,8 @@ export class RecordBorderScreen {
 
     const fade = ring.ringFade ?? 1;
     const overlay = ring.whiteOverlay ?? 0;
-    const intro = this._introState(elapsed);
+    // Intro clock starts when border anim starts (after optional idle phase 0)
+    const intro = this._introState(tl.animElapsed ?? elapsed);
 
     if (tl.phase === 1) {
       return {
@@ -321,13 +344,26 @@ export class RecordBorderScreen {
   }
 
   _clipRingPath(ctx, w, h, T, innerW, innerH, R_outer, R_inner) {
+    const pad = Math.max(0, Number(this.opts.ringEdgeInsetPx) || 0);
+    const ox = pad;
+    const oy = pad;
+    const ow = Math.max(1, w - 2 * pad);
+    const oh = Math.max(1, h - 2 * pad);
+    const R_o = Math.max(0, R_outer - pad);
+    // Inner hole stays at original inset T (band thins by `pad` on the outside only)
+    const ix = T;
+    const iy = T;
+    const iw = Math.max(1, innerW);
+    const ih = Math.max(1, innerH);
+    const R_i = Math.min(R_inner, Math.max(0, R_o - Math.max(0, T - pad)));
+
     ctx.beginPath();
     if (typeof ctx.roundRect === "function") {
-      ctx.roundRect(0, 0, w, h, R_outer);
-      ctx.roundRect(T, T, innerW, innerH, R_inner);
+      ctx.roundRect(ox, oy, ow, oh, R_o);
+      ctx.roundRect(ix, iy, iw, ih, R_i);
     } else {
-      this._roundRectPath(ctx, 0, 0, w, h, R_outer);
-      this._roundRectPath(ctx, T, T, innerW, innerH, R_inner);
+      this._roundRectPath(ctx, ox, oy, ow, oh, R_o);
+      this._roundRectPath(ctx, ix, iy, iw, ih, R_i);
     }
     ctx.clip("evenodd");
   }
@@ -378,10 +414,18 @@ export class RecordBorderScreen {
     ctx.restore();
   }
 
-  _drawRingGradient(ctx, w, h, T, innerW, innerH, R_outer, R_inner) {
-    const state = this._ringState();
-    if (!state.showRing) return;
+  _ensureRingScratch(w, h) {
+    if (this._ringScratch && this._ringScratch.width === w && this._ringScratch.height === h) {
+      return this._ringScratchCtx;
+    }
+    this._ringScratch = document.createElement("canvas");
+    this._ringScratch.width = w;
+    this._ringScratch.height = h;
+    this._ringScratchCtx = this._ringScratch.getContext("2d", { alpha: true });
+    return this._ringScratchCtx;
+  }
 
+  _paintRing(ctx, w, h, T, innerW, innerH, R_outer, R_inner, state) {
     ctx.save();
     this._clipRingPath(ctx, w, h, T, innerW, innerH, R_outer, R_inner);
 
@@ -396,6 +440,25 @@ export class RecordBorderScreen {
     }
 
     ctx.restore();
+  }
+
+  _drawRingGradient(ctx, w, h, T, innerW, innerH, R_outer, R_inner) {
+    const state = this._ringState();
+    if (!state.showRing) return;
+
+    const feather = Math.max(0, Number(this.opts.ringFeatherPx) || 0);
+    if (feather > 0) {
+      const sctx = this._ensureRingScratch(w, h);
+      sctx.clearRect(0, 0, w, h);
+      this._paintRing(sctx, w, h, T, innerW, innerH, R_outer, R_inner, state);
+      ctx.save();
+      ctx.filter = `blur(${feather}px)`;
+      ctx.drawImage(this._ringScratch, 0, 0);
+      ctx.restore();
+      return;
+    }
+
+    this._paintRing(ctx, w, h, T, innerW, innerH, R_outer, R_inner, state);
   }
 
   _redraw() {

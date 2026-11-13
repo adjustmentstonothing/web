@@ -24,6 +24,18 @@ const DEFAULTS = {
   gap: 0,
   scale: 0.8,
   brightness: 0.9,
+  /** Screen glass env reflection — 0 = off, ~1.3 = previous full highlight */
+  screenReflection: 1.3,
+  /** Multiplier on devicePixelRatio — 2 = supersample for recording / screenshots */
+  renderScale: 1,
+  /** Crop this many CSS pixels off the bottom silhouette (kills bottom-edge fringe) */
+  bottomCropPx: 0,
+  /** Listen mode: stop model spin when post-delete full white border appears */
+  freezeRotationOnFullBorder: false,
+  /** Initial yaw (deg). 0 = full frontal (screen toward camera). */
+  startRotationDeg: 0,
+  /** Hold at startRotationDeg for this many ms after sequence start, then spin */
+  holdRotationUntilMs: 0,
   softbox: 24,
   envRotationDeg: 73,
   envBlur: 0.04,
@@ -60,6 +72,20 @@ export class RotatingPhone {
     this.gapRatio = this.opts.gap;
     this.fitScreenFraction = this.opts.scale;
     this.screenBrightness = this.opts.brightness;
+    this.screenReflection = Number(this.opts.screenReflection) || 0;
+    this.renderScale = Math.max(1, Number(this.opts.renderScale) || 1);
+    this.bottomCropPx = Math.max(0, Number(this.opts.bottomCropPx) || 0);
+    this.freezeRotationOnFullBorder = Boolean(
+      this.opts.freezeRotationOnFullBorder,
+    );
+    const startDeg = Number(this.opts.startRotationDeg);
+    this._startRotationRad =
+      ((Number.isFinite(startDeg) ? startDeg : 0) * Math.PI) / 180;
+    const holdMs = Number(this.opts.holdRotationUntilMs);
+    this.holdRotationUntilMs =
+      Number.isFinite(holdMs) && holdMs > 0 ? holdMs : 0;
+    this._rotationHoldT0 =
+      typeof performance !== "undefined" ? performance.now() : 0;
     this.envRotationY = (this.opts.envRotationDeg * Math.PI) / 180;
     this.envBlur = this.opts.envBlur;
     this.envIntensityFactor = this.opts.envIntensity;
@@ -107,6 +133,10 @@ export class RotatingPhone {
     this._rafId = requestAnimationFrame(this._animate);
   }
 
+  _effectiveDpr() {
+    return (window.devicePixelRatio || 1) * this.renderScale;
+  }
+
   _initRenderer() {
     const renderer = new THREE.WebGLRenderer({
       antialias: false,
@@ -114,7 +144,7 @@ export class RotatingPhone {
       powerPreference: "high-performance",
       stencil: false,
     });
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = this._effectiveDpr();
     renderer.setPixelRatio(dpr);
     renderer.setSize(
       this.container.clientWidth || window.innerWidth,
@@ -133,6 +163,10 @@ export class RotatingPhone {
 
     this._planeFront = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
     this._planeBack = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
+    this._planeBottom = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    this._bottomCropBox = new THREE.Box3();
+    this._bottomCropPoint = new THREE.Vector3();
+    this._bottomCropNormal = new THREE.Vector3();
   }
 
   _initScene() {
@@ -145,6 +179,7 @@ export class RotatingPhone {
     this.camera.position.set(0, 0, 0.6);
 
     this.rotator = new THREE.Group();
+    this.rotator.rotation.y = this._startRotationRad;
     this.scene.add(this.rotator);
   }
 
@@ -153,22 +188,26 @@ export class RotatingPhone {
     const h = this.container.clientHeight || window.innerHeight;
     const dpr = this.renderer.getPixelRatio();
     const renderTarget = new THREE.WebGLRenderTarget(1, 1, {
-      samples: 4,
+      samples: 8,
       type: THREE.HalfFloatType,
     });
     this.composer = new EffectComposer(this.renderer, renderTarget);
     this.composer.setPixelRatio(dpr);
     this.composer.setSize(w, h);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.composer.addPass(new SMAAPass(w * dpr, h * dpr));
+    this.smaaPass = new SMAAPass(
+      Math.floor(w * dpr),
+      Math.floor(h * dpr),
+    );
+    this.composer.addPass(this.smaaPass);
   }
 
   _initLights() {
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.6);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.15);
     keyLight.position.set(2, 3, 2.5);
     this.scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0x88a8ff, 1.0);
+    const rimLight = new THREE.DirectionalLight(0x88a8ff, 0.7);
     rimLight.position.set(-3, 1.5, -2);
     this.scene.add(rimLight);
 
@@ -259,6 +298,13 @@ export class RotatingPhone {
 
   resetRecordBorderSequence() {
     this.recordScreen?.resetSequence?.();
+    this._resetRotationHold();
+  }
+
+  _resetRotationHold() {
+    this._rotationHoldT0 =
+      typeof performance !== "undefined" ? performance.now() : 0;
+    if (this.rotator) this.rotator.rotation.y = this._startRotationRad;
   }
 
   _scheduleModelLoad() {
@@ -319,6 +365,7 @@ export class RotatingPhone {
   _revealScene() {
     if (this.disposed) return;
     this.recordScreen?.resetSequence?.();
+    this._resetRotationHold();
     this._fitCamera();
     if (this.composer) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
@@ -404,6 +451,7 @@ export class RotatingPhone {
         this._setSceneLoaderProgress(1);
         this._applyEnvIntensity(this.envIntensityFactor);
         if (this._twoSided) this._applyTwoSided(true);
+        else this._syncClippingPlanes();
         this._syncCameraFitSize();
         this._revealScene();
       },
@@ -520,6 +568,7 @@ export class RotatingPhone {
           } else {
             this._planarizeScreenUV(obj.geometry);
           }
+          const reflection = this.screenReflection;
           const newMat = new THREE.MeshPhysicalMaterial({
             color: 0x000000,
             emissive: 0xffffff,
@@ -527,10 +576,10 @@ export class RotatingPhone {
             emissiveIntensity: brightness,
             metalness: 0.0,
             roughness: 0.08,
-            clearcoat: 1.0,
+            clearcoat: reflection > 0 ? 1.0 : 0,
             clearcoatRoughness: 0.03,
             ior: 1.5,
-            envMapIntensity: 1.3,
+            envMapIntensity: reflection,
             dithering: true,
           });
           obj.material = newMat;
@@ -544,8 +593,18 @@ export class RotatingPhone {
         }
         case "Screen_Rim":
         case "Screen_Rim.001": {
-          mat.roughness = Math.min(mat.roughness ?? 0.4, 0.35);
-          if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 1.3;
+          // Dark matte bezel — bright specular on this thin mesh aliases hard
+          if (mat.color) mat.color.setHex(0x050505);
+          if (mat.emissive) mat.emissive.setHex(0x000000);
+          if (mat.emissiveIntensity !== undefined) mat.emissiveIntensity = 0;
+          if (mat.map) {
+            mat.map.dispose?.();
+            mat.map = null;
+          }
+          mat.metalness = 0;
+          mat.roughness = 0.92;
+          if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 0;
+          mat.needsUpdate = true;
           break;
         }
         case "Rim_Buttons":
@@ -559,9 +618,12 @@ export class RotatingPhone {
             mat.normalMap = null;
           }
           mat.color.setHex(0x262626);
+          if (mat.emissive) mat.emissive.setHex(0x000000);
+          if (mat.emissiveIntensity !== undefined) mat.emissiveIntensity = 0;
           mat.metalness = 1.0;
-          mat.roughness = 0.3;
-          if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 1.4;
+          mat.roughness = 0.5;
+          if (mat.envMapIntensity !== undefined) mat.envMapIntensity = 1.1;
+          if (mat.clearcoat !== undefined) mat.clearcoat = 0;
           mat.onBeforeCompile = (shader) => {
             shader.fragmentShader = shader.fragmentShader.replace(
               "#include <lights_fragment_maps>",
@@ -572,6 +634,21 @@ export class RotatingPhone {
                 float _ig = dot(iblIrradiance, vec3(0.2126, 0.7152, 0.0722));
                 iblIrradiance = vec3(_ig);
               }`,
+            );
+            // Dim highlights only on downward-facing frame (bottom edge), keep side rim
+            shader.fragmentShader = shader.fragmentShader.replace(
+              "#include <output_fragment>",
+              `{
+                vec3 _wn = inverseTransformDirection( normal, viewMatrix );
+                float _bottom = smoothstep(0.05, 0.55, -_wn.y);
+                float _peak = max(outgoingLight.r, max(outgoingLight.g, outgoingLight.b));
+                float _cap = mix(0.85, 0.18, _bottom);
+                if (_peak > _cap) {
+                  outgoingLight *= _cap / _peak;
+                }
+                outgoingLight *= mix(1.0, 0.55, _bottom);
+              }
+              #include <output_fragment>`,
             );
           };
           mat.needsUpdate = true;
@@ -651,12 +728,72 @@ export class RotatingPhone {
     const apply = (m) => {
       m.clippingPlanes = planes;
       m.clipShadows = !!planes;
+      m.needsUpdate = true;
     };
     root.traverse((obj) => {
       if (!obj.isMesh || !obj.material) return;
       if (Array.isArray(obj.material)) obj.material.forEach(apply);
       else apply(obj.material);
     });
+  }
+
+  _updateBottomCropPlane() {
+    if (!this.loadedModel || this.bottomCropPx <= 0) return;
+    this.loadedModel.updateMatrixWorld(true);
+    this._bottomCropBox.setFromObject(this.loadedModel);
+    const h = this.container.clientHeight || window.innerHeight;
+    const d = Math.abs(this.camera.position.z) || 1;
+    const fov = this.camera.fov * (Math.PI / 180);
+    const worldPerPx = (2 * d * Math.tan(fov / 2)) / Math.max(1, h);
+    const crop = Math.max(worldPerPx * this.bottomCropPx, this.modelSize.y * 0.006);
+
+    // Phone "up" in world — plane follows the handset when tilted
+    this._bottomCropNormal
+      .set(0, 1, 0)
+      .transformDirection(this.loadedModel.matrixWorld)
+      .normalize();
+
+    // Lowest point of world AABB along phone-up
+    const box = this._bottomCropBox;
+    const n = this._bottomCropNormal;
+    const xs = [box.min.x, box.max.x];
+    const ys = [box.min.y, box.max.y];
+    const zs = [box.min.z, box.max.z];
+    let minProj = Infinity;
+    for (const x of xs) {
+      for (const y of ys) {
+        for (const z of zs) {
+          const proj = x * n.x + y * n.y + z * n.z;
+          if (proj < minProj) minProj = proj;
+        }
+      }
+    }
+    this._bottomCropPoint.copy(n).multiplyScalar(minProj + crop);
+    this._planeBottom.setFromNormalAndCoplanarPoint(
+      this._bottomCropNormal,
+      this._bottomCropPoint,
+    );
+  }
+
+  _syncClippingPlanes() {
+    this._updateBottomCropPlane();
+    const bottom =
+      this.bottomCropPx > 0 && this.loadedModel ? [this._planeBottom] : [];
+    if (!this.loadedModel) return;
+    if (this.mirrorInstance) {
+      this._applyClippingToTree(this.loadedModel, [
+        this._planeFront,
+        ...bottom,
+      ]);
+      this._applyClippingToTree(this.mirrorInstance, [
+        this._planeBack,
+        ...bottom,
+      ]);
+    } else if (bottom.length) {
+      this._applyClippingToTree(this.loadedModel, bottom);
+    } else {
+      this._applyClippingToTree(this.loadedModel, null);
+    }
   }
 
   _applyTwoSided(active) {
@@ -712,7 +849,7 @@ export class RotatingPhone {
       this.rotator.add(clone);
       this.mirrorInstance = clone;
 
-      this._applyClippingToTree(this.loadedModel, [this._planeFront]);
+      this._syncClippingPlanes();
       this._syncCameraFitSize();
       this._fitCamera();
     } else if (!active && this.mirrorInstance) {
@@ -725,7 +862,7 @@ export class RotatingPhone {
       this.rotator.remove(this.mirrorInstance);
       this.mirrorInstance = null;
       this.screenMatBack = null;
-      this._applyClippingToTree(this.loadedModel, null);
+      this._syncClippingPlanes();
       this._syncCameraFitSize();
       this._fitCamera();
     }
@@ -818,6 +955,18 @@ export class RotatingPhone {
       this.screenMatBack.emissiveIntensity = this.screenBrightness;
   }
 
+  /** Screen glass reflection strength — 0 off, ~1.3 full (live). */
+  setScreenReflection(value) {
+    const v = Math.max(0, Number(value) || 0);
+    this.screenReflection = v;
+    for (const mat of [this.screenMat, this.screenMatBack]) {
+      if (!mat) continue;
+      mat.envMapIntensity = v;
+      mat.clearcoat = v > 0 ? 1.0 : 0;
+      mat.needsUpdate = true;
+    }
+  }
+
   setSoftbox(intensity) {
     this.softbox.intensity = Number(intensity) || 0;
   }
@@ -844,7 +993,7 @@ export class RotatingPhone {
     if (this.disposed) return;
     const w = this.container.clientWidth || window.innerWidth;
     const h = this.container.clientHeight || window.innerHeight;
-    const ndpr = Math.min(window.devicePixelRatio || 1, 2);
+    const ndpr = this._effectiveDpr();
     this.renderer.setPixelRatio(ndpr);
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
@@ -852,6 +1001,7 @@ export class RotatingPhone {
     if (this.composer) {
       this.composer.setPixelRatio(ndpr);
       this.composer.setSize(w, h);
+      this.smaaPass?.setSize(Math.floor(w * ndpr), Math.floor(h * ndpr));
     }
     this._fitCamera();
   }
@@ -887,8 +1037,28 @@ export class RotatingPhone {
     }
     const dt = this.clock.getDelta();
     if (this.modelLoaded) {
-      this.rotator.rotation.y +=
-        this.BASE_ROT_SPEED * this.speedMultiplier * dt;
+      if (this.recordScreen?.shouldRestartListenLoop?.()) {
+        this.resetRecordBorderSequence();
+      }
+      const holdMs = this.holdRotationUntilMs;
+      const holding =
+        holdMs > 0 &&
+        (typeof performance !== "undefined"
+          ? performance.now()
+          : 0) -
+          this._rotationHoldT0 <
+          holdMs;
+      if (holding) {
+        this.rotator.rotation.y = this._startRotationRad;
+      } else {
+        const freezeRot =
+          this.freezeRotationOnFullBorder &&
+          this.recordScreen?.shouldFreezeModelRotation?.();
+        if (!freezeRot) {
+          this.rotator.rotation.y +=
+            this.BASE_ROT_SPEED * this.speedMultiplier * dt;
+        }
+      }
     }
     if (this.mirrorInstance) {
       const n = new THREE.Vector3(0, 0, 1).applyQuaternion(
@@ -896,6 +1066,9 @@ export class RotatingPhone {
       );
       this._planeFront.normal.copy(n);
       this._planeBack.normal.copy(n).negate();
+    }
+    if (this.bottomCropPx > 0 && this.modelLoaded) {
+      this._updateBottomCropPlane();
     }
     const pending =
       this.container.classList.contains("scene-loading") && !this.modelLoaded;

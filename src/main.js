@@ -1,4 +1,7 @@
-import { LISTEN_SEQUENCE_DEFAULTS } from "./ListenSequence.js";
+import {
+  LISTEN_SEQUENCE_DEFAULTS,
+  listenPhase2DurationMs,
+} from "./ListenSequence.js";
 import { RotatingPhone } from "./RotatingPhone.js";
 
 const sceneRoot = document.getElementById("scene-root");
@@ -37,14 +40,43 @@ if (uiToggle) {
 const app = document.getElementById("app");
 
 /** `record` | `listen` | `play` — play = canvas UI only (looping record ring) */
-const screenMode = "record";
+const screenMode = "listen";
 
 /** Canvas UI opacity — top label (Record / Listen / Play) */
 const uiPrimaryOpacity = 1;
 /** Canvas UI opacity — bottom label, middle row, listen phase 1 rest & phase 2 fade-from */
-const uiSecondaryOpacity = 0.3;
+const uiSecondaryOpacity = 0.4;
 /** Record ring thickness — fraction of screen width (0.054 ≈ default) */
-const borderThickness = 0.06;
+const borderThickness = 0.05714; // was 0.06; −2px vs screenAspectW 700
+
+/** Listen timeline — tap immediately, then “audio playing” */
+const listenIdleMs = 0;
+const listenPhase1Ms = 40000;
+const listenBorderWhiteFadeInMs =
+  LISTEN_SEQUENCE_DEFAULTS.listenBorderWhiteFadeInMs;
+const listenPhase2Ms = listenPhase2DurationMs({
+  ...LISTEN_SEQUENCE_DEFAULTS,
+  secondaryOpacity: uiSecondaryOpacity,
+});
+
+/**
+ * Silence after delete (~10–20s) + spin sync:
+ * full-border and loop end both land on startRotationDeg (−8°).
+ * 2 revs by full-border, 3 revs by loop end → silence ≈ 17s.
+ */
+const ROT_PERIOD_AT_1 = 18;
+const startRotationDeg = -8;
+const fullBorderMs = listenPhase1Ms + listenBorderWhiteFadeInMs;
+const spinRevsTotal = 3;
+const spinRevsAtFullBorder = 2;
+const listenSequenceTotalMs =
+  (fullBorderMs * spinRevsTotal) / spinRevsAtFullBorder;
+const listenSilenceMs = Math.max(
+  10000,
+  listenSequenceTotalMs - listenPhase1Ms - listenPhase2Ms,
+);
+const spinSpeed =
+  (ROT_PERIOD_AT_1 * spinRevsTotal) / (listenSequenceTotalMs / 1000);
 
 const phoneOptions = {
   lazyLoad: false,
@@ -53,7 +85,20 @@ const phoneOptions = {
     primaryOpacity: uiPrimaryOpacity,
     secondaryOpacity: uiSecondaryOpacity,
     borderWidthPct: borderThickness,
+    /** Screen canvas resolution (was 2048 for distribution) */
+    maxTextureSize: 4096,
     ...LISTEN_SEQUENCE_DEFAULTS,
+    /** No idle — cut in already dimmed (matches −8° start) */
+    listenIdleBeforeAnim: false,
+    listenIdleMs,
+    listenPhase1Ms,
+    listenStartDimmed: true,
+    /** Skip ring 0→1 fade — was a black flash at start / each loop */
+    introOpacityMs: 0,
+    listenSilenceMs,
+    /** Dim only at end of silence — same duration as cover fade-out */
+    listenSilenceDimMs: LISTEN_SEQUENCE_DEFAULTS.listenUiFadeOutMs || 320,
+    listenLoop: true,
     uiMode:
       screenMode === "play"
         ? "play"
@@ -63,8 +108,11 @@ const phoneOptions = {
             ? "record"
             : undefined,
   },
-  // speed: parseFloat(document.getElementById("speed")?.value ?? "1"),
-  speed: 0.8,
+  speed: spinSpeed, // ~0.88 — 3 revs per loop, end at −8°
+  startRotationDeg,
+  holdRotationUntilMs: 0,
+  /** Keep spinning after delete / full white border */
+  freezeRotationOnFullBorder: false,
   twoSided:
     document.getElementById("two-sided")?.classList.contains("active") ?? true,
   thickness: parseFloat(document.getElementById("thickness")?.value ?? "1"),
@@ -73,6 +121,12 @@ const phoneOptions = {
   scale: 2,
   // brightness: parseFloat(document.getElementById("brightness")?.value ?? "0.9"),
   brightness: 1,
+  /** Screen glass reflection — 0 off, 1.3 full; try 0.2–0.5 for a soft highlight */
+  screenReflection: 0.2,
+  /** 4× WebGL supersample for recording (scale down in post) */
+  renderScale: 2,
+  /** Crop CSS px off bottom silhouette to remove frame fringe */
+  bottomCropPx: 10,
   // softbox: parseFloat(document.getElementById("softbox")?.value ?? "24"),
   softbox: 0,
   envRotationDeg: parseFloat(document.getElementById("env-rot")?.value ?? "73"),
@@ -100,6 +154,8 @@ window.recordReplay = () => phone.resetRecordBorderSequence();
 window.phoneUi = (p) => phone.setRecordBorderParams(p);
 /** Console: `screenInsets()` — ring inset px, inner rect, source crop px */
 window.screenInsets = () => phone.getRecordBorderInsetInfo();
+/** Console: `screenReflection(0.35)` — glass highlight 0=off … ~1.3=full */
+window.screenReflection = (v) => phone.setScreenReflection(v);
 
 const bind = (id, fn) => {
   const el = document.getElementById(id);
