@@ -163,8 +163,26 @@ export class RecordBorderScreen {
     this._introT0 = typeof performance !== "undefined" ? performance.now() : 0;
     this.spin = 0;
     this._prevSpinWallMs = null;
+    this._pausedAt = null;
     this._redraw();
     this.texture.needsUpdate = true;
+  }
+
+  /** Freeze wall-clock sequence / ring spin while the home text shell is shown. */
+  pauseClock() {
+    if (this._pausedAt != null) return;
+    this._pausedAt =
+      typeof performance !== "undefined" ? performance.now() : 0;
+    this._prevSpinWallMs = null;
+  }
+
+  /** Resume without restarting — elapsed time stays where it was. */
+  resumeClock() {
+    if (this._pausedAt == null) return;
+    const now = typeof performance !== "undefined" ? performance.now() : 0;
+    this._introT0 += now - this._pausedAt;
+    this._pausedAt = null;
+    this._prevSpinWallMs = now;
   }
 
   /** True once listen sequence shows the full white border after deletion. */

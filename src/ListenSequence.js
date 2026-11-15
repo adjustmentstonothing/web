@@ -166,7 +166,8 @@ export function computeListenTimeline(elapsed, opts = {}) {
 
   const btnOutMs = Number(o.listenBtnFadeOutMs) || 320;
   const btnBreakMs = Number(o.listenBtnBreakMs) || 80;
-  const btnInMs = Number(o.listenBtnFadeInMs) || 1200;
+  let btnInMs = Number(o.listenBtnFadeInMs);
+  if (!Number.isFinite(btnInMs) || btnInMs < 0) btnInMs = 1200;
   const uiOutMs = Number(o.listenUiFadeOutMs) || 320;
 
   const dimmedEnd = {

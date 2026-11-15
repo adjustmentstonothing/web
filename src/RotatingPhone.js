@@ -12,6 +12,7 @@ import {
   RECORD_BORDER_DEFAULTS,
   omitUndefined,
 } from "./RecordBorderScreen.js";
+import { ListenAudio } from "./ListenAudio.js";
 
 RectAreaLightUniformsLib.init();
 
@@ -19,6 +20,10 @@ const DEFAULTS = {
   speed: 1,
   modelUrl: "/ATN_iphone_edt_02.glb",
   hdrUrl: "/studio.hdr",
+  /** Listen-mode bed audio (null = off) */
+  listenAudioUrl: null,
+  listenAudioFadeInMs: 500,
+  listenAudioFadeOutMs: 500,
   twoSided: false,
   thickness: 1,
   gap: 0,
@@ -28,6 +33,8 @@ const DEFAULTS = {
   screenReflection: 1.3,
   /** Multiplier on devicePixelRatio — 2 = supersample for recording / screenshots */
   renderScale: 1,
+  /** Cap on devicePixelRatio before renderScale (production often 2) */
+  maxPixelRatio: 2,
   /** Crop this many CSS pixels off the bottom silhouette (kills bottom-edge fringe) */
   bottomCropPx: 0,
   /** Listen mode: stop model spin when post-delete full white border appears */
@@ -74,6 +81,9 @@ export class RotatingPhone {
     this.screenBrightness = this.opts.brightness;
     this.screenReflection = Number(this.opts.screenReflection) || 0;
     this.renderScale = Math.max(1, Number(this.opts.renderScale) || 1);
+    const maxPr = Number(this.opts.maxPixelRatio);
+    this.maxPixelRatio =
+      Number.isFinite(maxPr) && maxPr > 0 ? maxPr : 2;
     this.bottomCropPx = Math.max(0, Number(this.opts.bottomCropPx) || 0);
     this.freezeRotationOnFullBorder = Boolean(
       this.opts.freezeRotationOnFullBorder,
@@ -105,6 +115,16 @@ export class RotatingPhone {
     this._modelLoadStarted = false;
     this._loadObserver = null;
     this._dracoLoader = null;
+    this.listenAudio = null;
+    if (this.opts.listenAudioUrl) {
+      const bedEl = document.getElementById("listen-bed-audio");
+      this.listenAudio = new ListenAudio({
+        url: this.opts.listenAudioUrl,
+        element: bedEl instanceof HTMLAudioElement ? bedEl : undefined,
+        fadeInMs: this.opts.listenAudioFadeInMs,
+        fadeOutMs: this.opts.listenAudioFadeOutMs,
+      });
+    }
 
     this.BASE_ROT_SPEED = (2 * Math.PI) / 18;
 
@@ -134,7 +154,8 @@ export class RotatingPhone {
   }
 
   _effectiveDpr() {
-    return (window.devicePixelRatio || 1) * this.renderScale;
+    const dpr = Math.min(window.devicePixelRatio || 1, this.maxPixelRatio);
+    return dpr * this.renderScale;
   }
 
   _initRenderer() {
@@ -299,6 +320,16 @@ export class RotatingPhone {
   resetRecordBorderSequence() {
     this.recordScreen?.resetSequence?.();
     this._resetRotationHold();
+    this.listenAudio?.onSequenceStart?.();
+  }
+
+  /** Unlock + start listen audio (call from a user-gesture handler). */
+  unlockAndStartListenAudio() {
+    return this.listenAudio?.unlockAndStart?.() ?? false;
+  }
+
+  isListenAudioPlaying() {
+    return Boolean(this.listenAudio?.isPlaying?.());
   }
 
   _resetRotationHold() {
@@ -366,6 +397,8 @@ export class RotatingPhone {
     if (this.disposed) return;
     this.recordScreen?.resetSequence?.();
     this._resetRotationHold();
+    // Start bed audio with the sequence (autoplay — no click when browser allows)
+    this.listenAudio?.onSequenceStart?.();
     this._fitCamera();
     if (this.composer) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
@@ -1009,9 +1042,11 @@ export class RotatingPhone {
   _onVisibility() {
     if (document.hidden) {
       this.clock.stop();
+      this.listenAudio?.pause();
     } else if (!this._paused) {
       this.clock.start();
       this.clock.getDelta();
+      this.listenAudio?.resume();
     }
   }
 
@@ -1022,10 +1057,15 @@ export class RotatingPhone {
     this._paused = next;
     if (next) {
       this.clock.stop();
+      this.recordScreen?.pauseClock?.();
+      this.listenAudio?.pause();
     } else {
       this.clock.start();
       this.clock.getDelta();
       this.resize();
+      // Resume in place — do not restart the sequence
+      this.recordScreen?.resumeClock?.();
+      this.listenAudio?.resume();
     }
   }
 
@@ -1040,6 +1080,7 @@ export class RotatingPhone {
       if (this.recordScreen?.shouldRestartListenLoop?.()) {
         this.resetRecordBorderSequence();
       }
+      this._syncListenAudio();
       const holdMs = this.holdRotationUntilMs;
       const holding =
         holdMs > 0 &&
@@ -1080,6 +1121,23 @@ export class RotatingPhone {
     this._rafId = requestAnimationFrame(this._animate);
   }
 
+  _syncListenAudio() {
+    if (!this.listenAudio || !this.recordScreen) return;
+    if (this.opts.recordBorder?.mode !== "listen") {
+      this.listenAudio.reset();
+      return;
+    }
+    const tl = this.recordScreen._listenTimeline?.();
+    if (!tl) return;
+    let phase1Ms = Number(this.opts.recordBorder?.listenPhase1Ms);
+    if (!Number.isFinite(phase1Ms)) phase1Ms = 21500;
+    this.listenAudio.sync({
+      phase: tl.phase,
+      animElapsed: tl.animElapsed,
+      phase1Ms,
+    });
+  }
+
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
@@ -1091,6 +1149,8 @@ export class RotatingPhone {
     this._loadObserver?.disconnect();
     this._dracoLoader?.dispose?.();
     this._dracoLoader = null;
+    this.listenAudio?.dispose();
+    this.listenAudio = null;
 
     this.scene.traverse((obj) => {
       if (obj.isMesh) {

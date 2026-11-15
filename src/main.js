@@ -1,7 +1,9 @@
+import { LISTEN_SEQUENCE_DEFAULTS } from "./ListenSequence.js";
 import {
-  LISTEN_SEQUENCE_DEFAULTS,
-  listenPhase2DurationMs,
-} from "./ListenSequence.js";
+  screenMode,
+  resolveActiveAnimationConfig,
+  resolveRenderProfile,
+} from "./AnimationConfig.js";
 import { RotatingPhone } from "./RotatingPhone.js";
 
 const sceneRoot = document.getElementById("scene-root");
@@ -39,66 +41,66 @@ if (uiToggle) {
 
 const app = document.getElementById("app");
 
-/** `record` | `listen` | `play` — play = canvas UI only (looping record ring) */
-const screenMode = "listen";
-
 /** Canvas UI opacity — top label (Record / Listen / Play) */
 const uiPrimaryOpacity = 1;
 /** Canvas UI opacity — bottom label, middle row, listen phase 1 rest & phase 2 fade-from */
-const uiSecondaryOpacity = 0.4;
+const uiSecondaryOpacity = 0.3;
 /** Record ring thickness — fraction of screen width (0.054 ≈ default) */
 const borderThickness = 0.05714; // was 0.06; −2px vs screenAspectW 700
 
-/** Listen timeline — tap immediately, then “audio playing” */
-const listenIdleMs = 0;
-const listenPhase1Ms = 40000;
-const listenBorderWhiteFadeInMs =
-  LISTEN_SEQUENCE_DEFAULTS.listenBorderWhiteFadeInMs;
-const listenPhase2Ms = listenPhase2DurationMs({
-  ...LISTEN_SEQUENCE_DEFAULTS,
+/** Edit AnimationConfig.js — `screenMode`, `renderProfile`, RECORD_CONFIG, listen presets */
+const anim = resolveActiveAnimationConfig({
   secondaryOpacity: uiSecondaryOpacity,
 });
-
-/**
- * Silence after delete (~10–20s) + spin sync:
- * full-border and loop end both land on startRotationDeg (−8°).
- * 2 revs by full-border, 3 revs by loop end → silence ≈ 17s.
- */
-const ROT_PERIOD_AT_1 = 18;
-const startRotationDeg = -8;
-const fullBorderMs = listenPhase1Ms + listenBorderWhiteFadeInMs;
-const spinRevsTotal = 3;
-const spinRevsAtFullBorder = 2;
-const listenSequenceTotalMs =
-  (fullBorderMs * spinRevsTotal) / spinRevsAtFullBorder;
-const listenSilenceMs = Math.max(
-  10000,
-  listenSequenceTotalMs - listenPhase1Ms - listenPhase2Ms,
-);
-const spinSpeed =
-  (ROT_PERIOD_AT_1 * spinRevsTotal) / (listenSequenceTotalMs / 1000);
+const render = resolveRenderProfile();
+const isListen = screenMode === "listen";
 
 const phoneOptions = {
-  lazyLoad: false,
+  lazyLoad: render.lazyLoad,
+  ...(isListen
+    ? {
+        listenAudioUrl: "/sound/atn-debussy.mp3",
+        listenAudioFadeInMs: 500,
+        /** Fade out across the pre-delete dim so audio is gone before "Deleted" */
+        listenAudioFadeOutMs: LISTEN_SEQUENCE_DEFAULTS.listenPrimaryDimMs || 500,
+      }
+    : {}),
   recordBorder: {
-    mode: screenMode === "listen" ? "listen" : "record",
+    mode: isListen ? "listen" : "record",
     primaryOpacity: uiPrimaryOpacity,
     secondaryOpacity: uiSecondaryOpacity,
     borderWidthPct: borderThickness,
-    /** Screen canvas resolution (was 2048 for distribution) */
-    maxTextureSize: 4096,
-    ...LISTEN_SEQUENCE_DEFAULTS,
-    /** No idle — cut in already dimmed (matches −8° start) */
-    listenIdleBeforeAnim: false,
-    listenIdleMs,
-    listenPhase1Ms,
-    listenStartDimmed: true,
-    /** Skip ring 0→1 fade — was a black flash at start / each loop */
-    introOpacityMs: 0,
-    listenSilenceMs,
-    /** Dim only at end of silence — same duration as cover fade-out */
-    listenSilenceDimMs: LISTEN_SEQUENCE_DEFAULTS.listenUiFadeOutMs || 320,
-    listenLoop: true,
+    maxTextureSize: render.maxTextureSize,
+    ...(isListen
+      ? {
+          ...LISTEN_SEQUENCE_DEFAULTS,
+          listenIdleBeforeAnim: false,
+          listenIdleMs: anim.listenIdleMs,
+          listenPhase1Ms: anim.listenPhase1Ms,
+          listenStartDimmed: true,
+          ...(anim.listenBtnFadeInMs != null
+            ? { listenBtnFadeInMs: anim.listenBtnFadeInMs }
+            : {}),
+          introOpacityMs: 0,
+          listenSilenceMs: anim.listenSilenceMs,
+          listenSilenceDimMs: LISTEN_SEQUENCE_DEFAULTS.listenUiFadeOutMs || 320,
+          listenLoop: true,
+          ...(anim.gradientSpeed != null
+            ? { gradientSpeed: anim.gradientSpeed }
+            : {}),
+        }
+      : {
+          introOpacityMs: 0,
+          ...(anim.gradientSpeed != null
+            ? { gradientSpeed: anim.gradientSpeed }
+            : {}),
+          ...(anim.introHalfDegStart != null
+            ? { introHalfDegStart: anim.introHalfDegStart }
+            : {}),
+          ...(anim.introGradientMs != null
+            ? { introGradientMs: anim.introGradientMs }
+            : {}),
+        }),
     uiMode:
       screenMode === "play"
         ? "play"
@@ -108,11 +110,10 @@ const phoneOptions = {
             ? "record"
             : undefined,
   },
-  speed: spinSpeed, // ~0.88 — 3 revs per loop, end at −8°
-  startRotationDeg,
+  speed: anim.spinSpeed,
+  startRotationDeg: anim.startRotationDeg,
   holdRotationUntilMs: 0,
-  /** Keep spinning after delete / full white border */
-  freezeRotationOnFullBorder: false,
+  freezeRotationOnFullBorder: Boolean(anim.freezeRotationOnFullBorder),
   twoSided:
     document.getElementById("two-sided")?.classList.contains("active") ?? true,
   thickness: parseFloat(document.getElementById("thickness")?.value ?? "1"),
@@ -121,14 +122,11 @@ const phoneOptions = {
   scale: 2,
   // brightness: parseFloat(document.getElementById("brightness")?.value ?? "0.9"),
   brightness: 1,
-  /** Screen glass reflection — 0 off, 1.3 full; try 0.2–0.5 for a soft highlight */
-  screenReflection: 0.2,
-  /** 4× WebGL supersample for recording (scale down in post) */
-  renderScale: 2,
-  /** Crop CSS px off bottom silhouette to remove frame fringe */
-  bottomCropPx: 10,
-  // softbox: parseFloat(document.getElementById("softbox")?.value ?? "24"),
-  softbox: 0,
+  screenReflection: render.screenReflection,
+  renderScale: render.renderScale,
+  maxPixelRatio: render.maxPixelRatio,
+  bottomCropPx: render.bottomCropPx,
+  softbox: render.softbox,
   envRotationDeg: parseFloat(document.getElementById("env-rot")?.value ?? "73"),
   envBlur: parseFloat(document.getElementById("env-blur")?.value ?? "0.04"),
   envIntensity: parseFloat(document.getElementById("env-int")?.value ?? "2.69"),
@@ -145,6 +143,10 @@ const phoneOptions = {
 
 const phone = new RotatingPhone(app, phoneOptions);
 attachDevStats(phone);
+
+/** Console: inspect resolved spin sync (`animConfig`) */
+window.animConfig = anim;
+
 
 /** Console: `recordBorder({ borderWidthPct: 0.03 })` or `recordBorder({ mode: 'listen' })` */
 window.recordBorder = (p) => phone.setRecordBorderParams(p);
@@ -243,7 +245,7 @@ if (document.body.classList.contains("home")) {
   const showPhoneScene = () => {
     if (!document.body.classList.contains("home-revealed")) return;
     document.body.classList.remove("home-revealed");
-    // Resume + resize after layout settles so the phone doesn't jump
+    // Resume + resize after layout settles so the phone doesn't jump / restart
     requestAnimationFrame(() => {
       phone.setPaused(false);
       requestAnimationFrame(() => phone.resize());
