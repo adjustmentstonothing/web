@@ -27,6 +27,7 @@
     <meta name="apple-mobile-web-app-title" content="Adjustments to Nothing" />
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="preload" href="/ATN_iphone_edt_02.glb" as="fetch" crossorigin />
+    <link rel="preload" href="/sound/atn-debussy.mp3" as="audio" type="audio/mpeg" />
     <link rel="stylesheet" href="/src/subpages.css" />
     <script type="application/ld+json">
       {
@@ -90,9 +91,9 @@
         opacity: 0;
         pointer-events: none;
       }
+      /* Snap visible when ready — no fade (avoids a black beat on load / fullscreen) */
       #app.scene-ready {
         opacity: 1;
-        transition: opacity 0.4s ease;
       }
       #scene-loader {
         display: none;
@@ -155,6 +156,14 @@
       </footer>
     </div>
     <button type="button" id="intro-capture" class="intro-capture" aria-label="Continue to website"></button>
+    <audio
+      id="listen-bed-audio"
+      src="/sound/atn-debussy.mp3"
+      preload="auto"
+      playsinline
+      webkit-playsinline
+      style="display: none"
+    ></audio>
     <script type="module" src="/src/main.js"></script>
     <script type="module" src="/src/store-link.js"></script>
   </body>
